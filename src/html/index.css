@@ -1,0 +1,92 @@
+body {
+	background-color: #acbec6;
+}
+
+.center {
+	text-align: center;
+}
+
+form {
+	border: 4px solid #8c8c8c;
+	border-radius: 10px;
+	background-color: #ededed;
+	padding: 30px;
+	display: inline-block;
+	margin-top: 6%;
+	padding-top: 5px;
+}
+
+input {
+	margin: 5px;
+	border-radius: 4px;
+	border: 2px solid #757575;
+	padding: 4px;
+	width: 5em;
+}
+
+input:hover {
+	border-color: #888888;
+}
+
+input:focus {
+	outline: none;
+	border-color: #99aa96;
+}
+
+progress {
+	height: 1.2em;
+	margin: 5px;
+	margin-bottom: 0px;
+}
+
+button {
+	--reflection-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 4 / 3));
+	margin: 5px;
+	margin-top: 12px;
+	padding: 10px 70px;
+	background-color: hsl(var(--bg-color-h), var(--bg-color-s), var(--bg-color-l));
+	color: black;
+	border: 2px solid;
+	border-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 2 / 3));
+	border-radius: 6px;
+	box-shadow: -1px -1px 5px var(--reflection-color), 6px 8px 8px #757575;
+	transition: all .5s;
+}
+
+button:hover {
+	background-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 16 / 15));
+	border-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 11 / 15));
+	box-shadow: -1px -1px 5px var(--reflection-color), 3px 4px 8px #757575;
+}
+
+button:focus {
+	outline: none;
+}
+
+button:active {
+	background-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 17 / 15));
+	border-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 11 / 15));
+	box-shadow: none;
+}
+
+.greenbtn {
+	--bg-color-h: 142;
+	--bg-color-s: 85%;
+	--bg-color-l: 38%;
+}
+
+.redbtn {
+	--bg-color-h: 0;
+	--bg-color-s: 82%;
+	--bg-color-l: 60%;
+}
+
+.graybtn {
+	--bg-color-h: 0;
+	--bg-color-s: 0%;
+	--bg-color-l: 70%;
+}
+
+.smallbtn {
+	padding: 8px 35px;
+}

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Esp Accelerometer control</title>
+<link rel="stylesheet" href="index.css" />
+<meta http-equiv="refresh" content="3" />
+</head>
+<body>
+	<div class="center">
+		<form method="post" action="index.html">
+			<h1>Recording...</h1>
+			Please wait for the recording to finish.<br />
+			<h2>Progress:</h2>
+			<progress id="measurements" max="$recordings" value="$recorded"></progress>
+			<label for="measurements">$recorded/$recordings measurements done.</label> <br />
+			<p>Time Remaining: $eta</p>
+			<p>Time Spent: $time</p>
+			<button class="redbtn smallbtn" name="cancel" value="cancel">Cancel</button>
+		</form>
+	</div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+# eclipse
+.cproject
+.project
+.settings
+
+# platform io
+.pio

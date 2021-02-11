@@ -1,0 +1,3 @@
+TODOs:
+ * Switch sensor connection to SPI
+ * Split sensor reading and data storage to different Tasks

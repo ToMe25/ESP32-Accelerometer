@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Esp Accelerometer control</title>
+<link rel="stylesheet" href="index.css" />
+</head>
+<body>
+	<div class="center">
+		<form method="post" action="index.html">
+			<h1>Pre recording settings</h1>
+			<label for="rate">The number measurements per second: </label>
+			<input type="number" name="rate" id="rate" value="50" min="1" max="500" placeholder="50hz" /> <br />
+			<label for="measurements">The number of measurements: </label>
+			<input type="number" name="measurements" id="measurements" value="15000" min="1" max="90000" placeholder="50000" /> <br />
+			<button class="greenbtn" name="start" value="start">Start</button>
+		</form>
+	</div>
+</body>
+</html>
