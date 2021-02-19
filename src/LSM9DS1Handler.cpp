@@ -183,15 +183,15 @@ void LSM9DS1Handler::sendAllCsv(AsyncWebServerRequest *request) const {
 				char *content = new char[channels * 13] { };
 				char *buffer = accel_gen(separator_char, position);
 				strcat(content, buffer);
-				free(buffer);
+				delete[] buffer;
 
 				buffer = linear_accel_gen(separator_char, position);
 				strcat(content, buffer);
-				free(buffer);
+				delete[] buffer;
 
 				buffer = gyromag_gen(separator_char, position);
 				strcat(content, buffer);
-				free(buffer);
+				delete[] buffer;
 
 				return content;
 			},
@@ -257,7 +257,7 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 							uint(data[position * values_per_measurement]),
 							content, '\n');
 
-					free(content);
+					delete[] content;
 					position++;
 				}
 
@@ -269,7 +269,7 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 				for (uint i = 0; i < length && i < maxlen; i++) {
 					buffer[i] = response[i];
 				}
-				free(response);
+				delete[] response;
 
 				return min(size_t(length), maxlen);
 			});

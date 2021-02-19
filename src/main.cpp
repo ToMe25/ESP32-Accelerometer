@@ -20,7 +20,7 @@ void setup() {
 
 	WiFi.setHostname(HOSTNAME);
 
-	WiFi.begin(SSID, PASSWORD);
+	WiFi.begin(WIFI_SSID, WIFI_PASS);
 	if (WiFi.waitForConnectResult() != WL_CONNECTED) {
 		Serial.println("Establishing a WiFi connection failed!");
 		return;

@@ -12,8 +12,8 @@
 #include <WebserverHandler.h>
 #include <LSM9DS1Handler.h>
 
-static constexpr char SSID[] = "WIFI_SSID";
-static constexpr char PASSWORD[] = "WPA_PASSPHRASE";
+extern const char WIFI_SSID[] asm("_binary_wifissid_txt_start");
+extern const char WIFI_PASS[] asm("_binary_wifipass_txt_start");
 
 static IPAddress localhost;
 static const IPAddress GATEWAY(192, 168, 2, 1);
