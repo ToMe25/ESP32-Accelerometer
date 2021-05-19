@@ -21,58 +21,58 @@
 #include <WebserverHandler.h>
 
 using namespace std;
+using namespace std::placeholders;
 
 WebserverHandler::WebserverHandler(int port, LSM9DS1Handler *handler) :
 		server(port), lsm9ds1(handler) {
 	// register website pages
-	server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
-		on_get_index(request);
-	});
+	function<void(AsyncWebServerRequest*)> on_get_index = bind(&WebserverHandler::on_get_index, this, _1);
+	register_url(HTTP_GET, "/", on_get_index);
+	register_url(HTTP_GET, "/index.html", on_get_index);
 
-	server.on("/index.html", HTTP_GET, [this](AsyncWebServerRequest *request) {
-		on_get_index(request);
-	});
-
-	server.on("/index.html", HTTP_POST, [this](AsyncWebServerRequest *request) {
-		on_post_index(request);
-	});
+	register_url(HTTP_POST, "/index.html",
+			bind(&WebserverHandler::on_post_index, this, _1));
 
 	server.on("/index.css", HTTP_GET, [](AsyncWebServerRequest *request) {
 		request->send(200, "text/css", index_css);
+	});
+
+	server.on("/recording.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+		request->send(200, "text/javascript", recording_js);
 	});
 
 	server.onNotFound([this](AsyncWebServerRequest *request) {
 		on_not_found(request);
 	});
 
-	server.on("/all.csv", HTTP_ANY,
-			[this](AsyncWebServerRequest *request) {
-				lsm9ds1->sendAllCsv(request);
-			});
+	// register dynamic pages
+	register_url(HTTP_ANY, "/all.csv",
+			bind(&LSM9DS1Handler::sendAllCsv, lsm9ds1, _1));
 
-	server.on("/accelerometer.csv", HTTP_ANY,
-			[this](AsyncWebServerRequest *request) {
-				lsm9ds1->sendAccelerometerCsv(request);
-			});
+	register_url(HTTP_ANY, "/accelerometer.csv",
+			bind(&LSM9DS1Handler::sendAccelerometerCsv, lsm9ds1, _1));
 
-	server.on("/linear_accelerometer.csv", HTTP_ANY,
-			[this](AsyncWebServerRequest *request) {
-				lsm9ds1->sendLinearAccelerometerCsv(request);
-			});
+	register_url(HTTP_ANY, "/linear_accelerometer.csv",
+			bind(&LSM9DS1Handler::sendLinearAccelerometerCsv, lsm9ds1, _1));
 
-	server.on("/gyroscope.csv", HTTP_ANY,
-			[this](AsyncWebServerRequest *request) {
-				lsm9ds1->sendGyroscopeCsv(request);
-			});
+	register_url(HTTP_ANY, "/gyroscope.csv",
+			bind(&LSM9DS1Handler::sendGyroscopeCsv, lsm9ds1, _1));
 
-	server.on("/magnetometer.csv", HTTP_ANY,
-			[this](AsyncWebServerRequest *request) {
-				lsm9ds1->sendMagnetometerCsv(request);
-			});
+	register_url(HTTP_ANY, "/magnetometer.csv",
+			bind(&LSM9DS1Handler::sendMagnetometerCsv, lsm9ds1, _1));
+
+	register_url(HTTP_ANY, "/measurements.json",
+			bind(&LSM9DS1Handler::sendMeasurementsJson, lsm9ds1, _1));
 }
 
 WebserverHandler::~WebserverHandler() {
 
+}
+
+void WebserverHandler::register_url(const uint8_t http_code, const char* url, function<void(AsyncWebServerRequest*)> callback) {
+	server.on(url, http_code, [this, callback](AsyncWebServerRequest *request) {
+		callback(request);
+	});
 }
 
 void WebserverHandler::on_not_found(AsyncWebServerRequest *request) {

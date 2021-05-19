@@ -62,6 +62,8 @@ public:
 		sendMeasurementsCsv(request, headers, 7);
 	}
 
+	void sendMeasurementsJson(AsyncWebServerRequest *request) const;
+
 	const uint getStoredMeasurements() const {
 		return measurements_stored;
 	}

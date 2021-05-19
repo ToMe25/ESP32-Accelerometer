@@ -92,14 +92,12 @@ void LSM9DS1Handler::loop() {
 	measurements_stored++;
 
 	if (measurements_stored > 1) {
-		measuring_time =
-				(measuring_time * 2
-						+ uint(
-								data[(measurements_stored - 1)
-										* values_per_measurement])
-						- uint(
-								data[(measurements_stored - 2)
-										* values_per_measurement])) / 3;
+		measuring_time = round(
+				(data[(measurements_stored - 1) * values_per_measurement]
+						- data[(measurements_stored
+								- min(measurements_stored, uint(10)))
+								* values_per_measurement])
+						/ (min(measurements_stored, uint(10)) - 1));
 	}
 
 	delay(
@@ -286,4 +284,14 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 
 				return min(size_t(length), maxlen);
 			});
+}
+
+void LSM9DS1Handler::sendMeasurementsJson(AsyncWebServerRequest *request) const {
+	char *measurements = new char[50];
+	uint measuring_time = measurement_duration;
+	if (measuring) {
+		measuring_time = uint(millis() - measurement_start);
+	}
+	sprintf(measurements, "{\"measurements\": %u, \"time\": %u}", measurements_stored, measuring_time);
+	request->send(200, "application/json", measurements);
 }

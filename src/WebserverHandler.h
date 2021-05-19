@@ -29,6 +29,7 @@ extern const char recording_html[] asm("_binary_src_html_recording_html_start");
 extern const char results_html[] asm("_binary_src_html_results_html_start");
 extern const char not_found_html[] asm("_binary_src_html_404_html_start");
 extern const char index_css[] asm("_binary_src_html_index_css_start");
+extern const char recording_js[] asm("_binary_src_html_recording_js_start");
 
 class WebserverHandler {
 public:
@@ -50,6 +51,7 @@ private:
 
 	LSM9DS1Handler *lsm9ds1;
 
+	void register_url(const uint8_t http_code, const char* url, std::function<void(AsyncWebServerRequest*)> callback);
 	void replace_all(std::string &str, const std::string &from, const std::string &to);
 };
 
