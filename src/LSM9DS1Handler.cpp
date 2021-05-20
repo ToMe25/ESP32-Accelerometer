@@ -45,7 +45,15 @@ void LSM9DS1Handler::setupSensor() {
 void LSM9DS1Handler::begin() {
 	data = (float*) ps_malloc(data_size);
 
-	if (!lsm.begin()) {
+	if (lsm.begin()) {
+#ifdef LSM9DS1_I2C
+		Serial.println("Connected to the lsm9ds1 using I2C.");
+#endif
+
+#ifdef LSM9DS1_SPI
+		Serial.println("Connected to the lsm9ds1 using SPI.");
+#endif
+	} else {
 		while (1) {
 			Serial.println(
 					"Failed to initialize the LSM9DS1. Check your wiring!");
@@ -55,7 +63,9 @@ void LSM9DS1Handler::begin() {
 
 	setupSensor();
 
+#ifdef LSM9DS1_I2C
 	Wire.setClock(400000);
+#endif
 }
 
 void LSM9DS1Handler::loop() {
@@ -75,6 +85,14 @@ void LSM9DS1Handler::loop() {
 	sensors_event_t a, m, g, t;
 
 	lsm.getEvent(&a, &m, &g, &t);
+
+	if (measurements_stored > 0
+			&& a.timestamp - measurement_start
+					== uint(
+							data[(measurements_stored - 1)
+									* values_per_measurement])) {
+		return;
+	}
 
 	data[measurements_stored * values_per_measurement] = a.timestamp
 			- measurement_start;

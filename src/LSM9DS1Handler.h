@@ -27,6 +27,14 @@
 #define LSM9DS1_XGCS 27
 #define LSM9DS1_MCS 26
 
+//#define LSM9DS1_I2C // uncomment to use I2C to connect to the lsm9ds1
+
+#ifndef LSM9DS1_I2C
+#define LSM9DS1_SPI
+#else
+#undef LSM9DS1_SPI
+#endif
+
 class LSM9DS1Handler {
 public:
 	static const uint8_t values_per_measurement = 10;
@@ -94,7 +102,12 @@ public:
 	}
 
 private:
-	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
+#ifdef LSM9DS1_I2C
+	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1(); // Use I2C to connect to the lsm9ds1
+#endif
+#ifdef LSM9DS1_SPI
+	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1(22, 32, 21, LSM9DS1_XGCS, LSM9DS1_MCS); // Use Software SPI to connect to the lsm9ds1
+#endif
 
 	const uint measurements_max;
 	const uint data_size;
