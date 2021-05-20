@@ -22,6 +22,9 @@
 
 void setup() {
 	Serial.begin(115200);
+	while (!Serial) {
+		yield();
+	}
 
 	WiFi.mode(WIFI_STA);
 	WiFi.disconnect(true);

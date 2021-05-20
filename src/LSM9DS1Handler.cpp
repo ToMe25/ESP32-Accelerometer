@@ -54,6 +54,8 @@ void LSM9DS1Handler::begin() {
 	}
 
 	setupSensor();
+
+	Wire.setClock(400000);
 }
 
 void LSM9DS1Handler::loop() {
