@@ -75,10 +75,11 @@ void LSM9DS1Handler::loop() {
 	} else if (measurements_stored >= measurements) {
 		measuring = false;
 		measurement_duration = millis() - measurement_start;
+		measuring_time = measurement_duration * 1000 / measurements;
 		return;
 	}
 
-	uint64_t start_ms = millis();
+	uint64_t start_us = micros();
 
 	lsm.read();
 
@@ -120,10 +121,9 @@ void LSM9DS1Handler::loop() {
 						/ (min(measurements_stored, uint(10)) - 1));
 	}
 
-	delay(
+	delayMicroseconds(
 			measuring_time_target
-					- min(measuring_time_target,
-							uint16_t(millis() - start_ms)));
+					- min(measuring_time_target, uint(micros() - start_us)));
 }
 
 void LSM9DS1Handler::measure(uint measurements, uint16_t freq) {
@@ -132,7 +132,7 @@ void LSM9DS1Handler::measure(uint measurements, uint16_t freq) {
 
 	measurements_stored = 0;
 	frequency = freq;
-	measuring_time_target = measuring_time = 1000 / freq;
+	measuring_time_target = measuring_time = 1000000 / freq;
 	LSM9DS1Handler::measurements = measurements;
 	measuring = true;
 
@@ -141,7 +141,7 @@ void LSM9DS1Handler::measure(uint measurements, uint16_t freq) {
 
 function<char* (byte, uint)> LSM9DS1Handler::getLinearAccelerationGenerator() const {
 	Adafruit_NXPSensorFusion filter;
-	filter.begin(round(1000.0 / measuring_time));
+	filter.begin(round(1000000.0 / measuring_time));
 
 	return [this, filter](byte separator_char, uint position) mutable {
 		char *line = new char[39] { };

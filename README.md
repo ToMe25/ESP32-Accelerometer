@@ -2,8 +2,8 @@
 ESP32-Accelerometer is a tool to record acceleration, rotation, and magnetometer values using an ESP32 and a LSM9DS1.<br/>
 This is currently implemented so you first set for how long you want to record, then wait for it to finish, and then download the recordings.<br/>
 Because of this an ESP32 with 4+ MB of psram is required.<br/>
-This program reads the values from the LSM9DS1 using either I2C or software SPI.<br/>
-Using I2C this program can reach a sample rate of ~230hz, using SPI it can reach 500hz.
+This program reads the values from the LSM9DS1 using either I2C or software(?) SPI.<br/>
+Using I2C this program can reach a sample rate of ~230hz, using SPI it can reach the full almost 1000hz the sensor supports.
 
 # Required Components
  * ESP32 with 4+MB psram(for example ESP32-DevKitCVE or ESP32-DevKitCVIE)

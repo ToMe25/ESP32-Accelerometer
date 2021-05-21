@@ -84,14 +84,23 @@ public:
 		return measuring;
 	}
 
+	/*
+	 * Get the time for one measurement in microseconds.
+	 */
 	const uint16_t getMeasuringTime() const {
 		return measuring_time;
 	}
 
+	/*
+	 * Get the measurement start time in milliseconds.
+	 */
 	const uint64_t getMeasurementStart() const {
 		return measurement_start;
 	}
 
+	/*
+	 * Get the time spent measuring in milliseconds.
+	 */
 	const uint64_t getMeasurementDuration() const {
 		return measurement_duration;
 	}
@@ -118,8 +127,8 @@ private:
 	uint measurements = 0;
 
 	uint16_t frequency = 50;
-	uint16_t measuring_time = 0;
-	uint16_t measuring_time_target = 20;
+	uint measuring_time = 0;
+	uint measuring_time_target = 20000;
 
 	uint64_t measurement_start = 0;
 	uint measurement_duration = 0;
