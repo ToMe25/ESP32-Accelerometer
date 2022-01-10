@@ -6,6 +6,7 @@
 # platform io
 .pio
 
-# Wifi credentials
+# Credentials
 wifissid.txt
 wifipass.txt
+otapass.txt

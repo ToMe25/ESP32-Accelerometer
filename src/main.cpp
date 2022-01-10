@@ -19,11 +19,13 @@
  */
 
 #include <main.h>
+#include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 
 void setup() {
 	Serial.begin(115200);
 	while (!Serial) {
-		yield();
+		delay(10);
 	}
 
 	WiFi.mode(WIFI_STA);
@@ -60,9 +62,47 @@ void setup() {
 
 	server.begin();
 
+	setupOTA();
+	MDNS.addService("http", "tcp", 80);
+
 	sensorHandler.begin();
+}
+
+void setupOTA() {
+	ArduinoOTA.setHostname(HOSTNAME);
+
+	ArduinoOTA.onStart([]() {
+		Serial.println("Start updating sketch.");
+	});
+
+	ArduinoOTA.onProgress([](uint progress, uint total) {
+		Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+	});
+
+	ArduinoOTA.onEnd([]() {
+		Serial.println("\nUpdate Done.");
+	});
+
+	ArduinoOTA.onError([](ota_error_t error) {
+		Serial.printf("OTA Error[%u]: ", error);
+		if (error == OTA_AUTH_ERROR) {
+			Serial.println("Auth Failed.");
+		} else if (error == OTA_BEGIN_ERROR) {
+			Serial.println("Begin Failed.");
+		} else if (error == OTA_CONNECT_ERROR) {
+			Serial.println("Connect Failed.");
+		} else if (error == OTA_RECEIVE_ERROR) {
+			Serial.println("Receive Failed.");
+		} else if (error == OTA_END_ERROR) {
+			Serial.println("End Failed.");
+		}
+	});
+
+	ArduinoOTA.begin();
 }
 
 void loop() {
 	sensorHandler.loop();
+
+	ArduinoOTA.handle();
 }

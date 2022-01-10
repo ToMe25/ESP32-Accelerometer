@@ -6,20 +6,18 @@
 <link rel="stylesheet" href="index.css" />
 </head>
 <body>
-	<div class="center">
-		<form method="post" action="index.html">
-			<h1>Recording finished!</h1>
-			Measurements: $measurements<br />
-			Recording Time: $time<br />
-			<label for="separator">The separator char for the csvs: </label>
-			<input type="text" name="separator" id="seperator" maxlength="1" value=","> <br />
-			<button class="redbtn smallbtn" name="back" value="back">Back</button>
-			<button class="graybtn smallbtn" formaction="all.csv">All</button>
-			<button class="graybtn smallbtn" formaction="accelerometer.csv">Accelerometer</button>
-			<button class="graybtn smallbtn" formaction="linear_accelerometer.csv">Linear Accelerometer</button>
-			<button class="graybtn smallbtn" formaction="gyroscope.csv">Gyroscope</button>
-			<button class="graybtn smallbtn" formaction="magnetometer.csv">Magnetometer</button>
-		</form>
-	</div>
+	<form method="post" action="index.html" class="main">
+		<h1>Recording finished!</h1>
+		Measurements: $measurements<br />
+		Recording Time: $time<br />
+		<label for="separator">The separator char for the csvs: </label>
+		<input type="text" name="separator" id="seperator" maxlength="1" value=","> <br />
+		<button class="redbtn smallbtn" name="back" value="back">Back</button>
+		<button class="graybtn smallbtn" formaction="all.csv">All</button>
+		<button class="graybtn smallbtn" formaction="accelerometer.csv">Accelerometer</button>
+		<button class="graybtn smallbtn" formaction="linear_accelerometer.csv">Linear Accelerometer</button>
+		<button class="graybtn smallbtn" formaction="gyroscope.csv">Gyroscope</button>
+		<button class="graybtn smallbtn" formaction="magnetometer.csv">Magnetometer</button>
+	</form>
 </body>
 </html>

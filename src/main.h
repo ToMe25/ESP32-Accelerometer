@@ -27,6 +27,7 @@
 
 extern const char WIFI_SSID[] asm("_binary_wifissid_txt_start");
 extern const char WIFI_PASS[] asm("_binary_wifipass_txt_start");
+extern const char OTA_PASS[] asm("_binary_otapass_txt_start");
 
 static IPAddress localhost;
 static const IPAddress GATEWAY(192, 168, 2, 1);
@@ -41,4 +42,21 @@ static const uint PORT = 80;
 
 static WebserverHandler server(PORT, &sensorHandler);
 
-#endif
+/**
+ * The first method called when the ESP starts.
+ * Initializes everything the program needs.
+ */
+void setup();
+
+/**
+ * Initializes everything required for ArduinoOTA.
+ */
+void setupOTA();
+
+/**
+ * The method doing everything that needs to be repeated for as long as the program runs.
+ * Gets called repeatedly by the Arduino framework.
+ */
+void loop();
+
+#endif /* SRC_MAIN_H_ */

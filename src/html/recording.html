@@ -8,17 +8,15 @@
 <script type="text/javascript" src="recording.js"></script>
 </head>
 <body>
-	<div class="center">
-		<form method="post" action="index.html">
-			<h1>Recording...</h1>
-			Please wait for the recording to finish.<br />
-			<h2>Progress:</h2>
-			<progress id="measurements" max="$recordings" value="$recorded"></progress>
-			<label for="measurements"><span id="recorded">$recorded</span>/<span id="recordings">$recordings</span> measurements done.</label> <br />
-			<p>Time Remaining: <span id="eta">$eta</span></p>
-			<p>Time Spent: <span id="time">$time</span></p>
-			<button class="redbtn smallbtn" name="cancel" value="cancel">Cancel</button>
-		</form>
-	</div>
+	<form method="post" action="index.html" class="main">
+		<h1>Recording...</h1>
+		Please wait for the recording to finish.<br />
+		<h2>Progress:</h2>
+		<progress id="measurements" max="$recordings" value="$recorded"></progress>
+		<label for="measurements"><span id="recorded">$recorded</span>/<span id="recordings">$recordings</span> measurements done.</label> <br />
+		<p>Time Remaining: <span id="eta">$eta</span></p>
+		<p>Time Spent: <span id="time">$time</span></p>
+		<button class="redbtn smallbtn" name="cancel" value="cancel">Cancel</button>
+	</form>
 </body>
 </html>

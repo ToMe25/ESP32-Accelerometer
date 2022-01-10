@@ -16,7 +16,8 @@ Using I2C this program can reach a sample rate of ~230hz, using SPI it can reach
     If you want to use I2C you also need to uncomment `#define LSM9DS1_I2C` in `src/LSM9DS1Handler.h` line 30.
  4. Attach the ESP32 to your PC
  5. Add a `wifissid.txt` and `wifipass.txt` file containing your wifi ssid and passphrase. Make sure they do not end with an empty line!
- 6. Build and Upload using your IDE or by running `pio run --target upload`
+ 6. Create a `otapass.txt` file containing the password to be used to update the firmware over WiFi. Make sure this file does not end with an empty line!
+ 7. Build and Upload using your IDE or by running `pio run -t upload -e esp32dev` to flash over USB or `pio run -t upload -e esp32dev_ota` to update the program over WiFi.
 
 Connections for I2C:  
 (Temporary description until I can find an adequate tool to make circuit diagrams)  
