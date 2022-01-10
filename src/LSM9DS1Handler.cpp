@@ -45,21 +45,18 @@ void LSM9DS1Handler::setupSensor() {
 void LSM9DS1Handler::begin() {
 	data = (float*) ps_malloc(data_size);
 
-	if (lsm.begin()) {
+	while (!lsm.begin()) {
+		Serial.println("Failed to initialize the LSM9DS1. Check your wiring!");
+		delay(1000);
+	}
+
 #ifdef LSM9DS1_I2C
-		Serial.println("Connected to the lsm9ds1 using I2C.");
+	Serial.println("Connected to the lsm9ds1 using I2C.");
 #endif
 
 #ifdef LSM9DS1_SPI
-		Serial.println("Connected to the lsm9ds1 using SPI.");
+	Serial.println("Connected to the lsm9ds1 using SPI.");
 #endif
-	} else {
-		while (1) {
-			Serial.println(
-					"Failed to initialize the LSM9DS1. Check your wiring!");
-			delay(1000);
-		}
-	}
 
 	setupSensor();
 

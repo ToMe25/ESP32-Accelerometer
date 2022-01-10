@@ -1,8 +1,8 @@
 # ESP32-Accelerometer
-ESP32-Accelerometer is a tool to record acceleration, rotation, and magnetometer values using an ESP32 and a LSM9DS1.<br/>
-This is currently implemented so you first set for how long you want to record, then wait for it to finish, and then download the recordings.<br/>
-Because of this an ESP32 with 4+ MB of psram is required.<br/>
-This program reads the values from the LSM9DS1 using either I2C or software(?) SPI.<br/>
+ESP32-Accelerometer is a tool to record acceleration, rotation, and magnetometer values using an ESP32 and a LSM9DS1.  
+This is currently implemented so you first set for how long you want to record, then wait for it to finish, and then download the recordings.  
+Because of this an ESP32 with 4+ MB of psram is required.  
+This program reads the values from the LSM9DS1 using either I2C or software(?) SPI.  
 Using I2C this program can reach a sample rate of ~230hz, using SPI it can reach the full almost 1000hz the sensor supports.
 
 # Required Components
@@ -18,8 +18,8 @@ Using I2C this program can reach a sample rate of ~230hz, using SPI it can reach
  5. Add a `wifissid.txt` and `wifipass.txt` file containing your wifi ssid and passphrase. Make sure they do not end with an empty line!
  6. Build and Upload using your IDE or by running `pio run --target upload`
 
-Connections for I2C:<br/>
-(Temporary description until I can find an adequate tool to make circuit diagrams)<br/>
+Connections for I2C:  
+(Temporary description until I can find an adequate tool to make circuit diagrams)  
 |ESP32 Pin|LSM9DS1 Pin|
 |---------|-----------|
 |3V3      |VIN        |
@@ -27,8 +27,8 @@ Connections for I2C:<br/>
 |GPIO 22  |SCL        |
 |GPIO 21  |SDA        |
 
-Connections for SPI:<br/>
-(Temporary description until I can find an adequate tool to make circuit diagrams)<br/>
+Connections for SPI:  
+(Temporary description until I can find an adequate tool to make circuit diagrams)  
 |ESP32 Pin|LSM9DS1 Pin(s)|
 |---------|--------------|
 |3V3      |VIN           |
