@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-#include <main.h>
+#include "main.h"
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 

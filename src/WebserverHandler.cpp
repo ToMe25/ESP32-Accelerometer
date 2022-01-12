@@ -18,13 +18,13 @@
  * limitations under the License.
  */
 
-#include <WebserverHandler.h>
+#include "WebserverHandler.h"
 
 using namespace std;
-using namespace std::placeholders;
 
 WebserverHandler::WebserverHandler(int port, LSM9DS1Handler *handler) :
 		server(port), lsm9ds1(handler) {
+	using namespace std::placeholders;
 	// register website pages
 	function<void(AsyncWebServerRequest*)> on_get_index = bind(&WebserverHandler::on_get_index, this, _1);
 	register_url(HTTP_GET, "/", on_get_index);

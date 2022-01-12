@@ -17,7 +17,7 @@ function init() {
 	eta = document.getElementById('eta')
 	time = document.getElementById('time')
 
-	recordingsVal = Number(recordings.innerHTML)
+	recordingsVal = Number(recordings.innerText)
 
 	update()
 }
@@ -28,10 +28,10 @@ function update() {
 			return res.json();
 		})
 		.then((out) => {
-			measurements.value = recorded.innerHTML = out.measurements
-			time.innerHTML = format_time(out.time)
+			measurements.value = recorded.innerText = out.measurements
+			time.innerText = format_time(out.time)
 			var recordTime = out.time / out.measurements
-			eta.innerHTML = format_time(recordTime * (recordingsVal - out.measurements))
+			eta.innerText = format_time(recordTime * (recordingsVal - out.measurements))
 
 			if (out.measurements == recordingsVal) {
 				location = location // reload website. location.reload asks the user to resend the form.
