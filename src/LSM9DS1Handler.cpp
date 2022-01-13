@@ -20,7 +20,7 @@
 
 #include "LSM9DS1Handler.h"
 #include <sstream>
-#include <Adafruit_AHRS_NXPFusion.h>
+#include <Adafruit_AHRS_Madgwick.h>
 
 LSM9DS1Handler::LSM9DS1Handler(uint32_t max_measurements) :
 		measurements_max(max_measurements), data_size(
@@ -111,14 +111,15 @@ void LSM9DS1Handler::loop() {
 		measuring_time = round(
 				(data[(measurements_stored - 1) * VALUES_PER_MEASUREMENT]
 						- data[(measurements_stored
-								- min(measurements_stored, uint32_t(10)))
-								* VALUES_PER_MEASUREMENT])
-						/ (min(measurements_stored, uint32_t(10)) - 1));
+								- min(measurements_stored, (uint32_t) 10))
+								* VALUES_PER_MEASUREMENT]) * 1000
+						/ (min(measurements_stored, (uint32_t) 10) - 1));
 	}
 
 	delayMicroseconds(
 			measuring_time_target
-					- min(measuring_time_target, uint32_t(micros() - start_us)));
+					- min(measuring_time_target,
+							uint32_t(micros() - start_us)));
 }
 
 void LSM9DS1Handler::measure(uint32_t measurements, uint16_t freq) {
@@ -161,18 +162,13 @@ std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getAllGenerator() const
 }
 
 std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getLinearAccelerationGenerator() const {
-	Adafruit_NXPSensorFusion filter;
-	filter.begin(round(1000000.0 / measuring_time));
+	std::shared_ptr<Adafruit_Madgwick> filter = std::make_shared<
+			Adafruit_Madgwick>();
+	// Tell the filter a lower sample rate to reduce smoothing.
+	filter->begin(round(1000000.0 / measuring_time) / 20);
 
 	return [this, filter](uint8_t separator_char, uint32_t position) mutable {
 		char *line = new char[39] { };
-
-		const float gx = data[position * VALUES_PER_MEASUREMENT + 4]
-				* SENSORS_RADS_TO_DPS;
-		const float gy = data[position * VALUES_PER_MEASUREMENT + 5]
-				* SENSORS_RADS_TO_DPS;
-		const float gz = data[position * VALUES_PER_MEASUREMENT + 6]
-				* SENSORS_RADS_TO_DPS;
 
 		const float ax = data[position * VALUES_PER_MEASUREMENT + 1]
 				/ SENSORS_GRAVITY_EARTH;
@@ -181,18 +177,35 @@ std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getLinearAccelerationGe
 		const float az = data[position * VALUES_PER_MEASUREMENT + 3]
 				/ SENSORS_GRAVITY_EARTH;
 
-		filter.update(gx, gy, gz, ax, ay, az,
+		const float gx = data[position * VALUES_PER_MEASUREMENT + 4]
+				* SENSORS_RADS_TO_DPS;
+		const float gy = data[position * VALUES_PER_MEASUREMENT + 5]
+				* SENSORS_RADS_TO_DPS;
+		const float gz = data[position * VALUES_PER_MEASUREMENT + 6]
+				* SENSORS_RADS_TO_DPS;
+
+		filter->update(gx, gy, gz, ax, ay, az,
 				data[position * VALUES_PER_MEASUREMENT + 7],
 				data[position * VALUES_PER_MEASUREMENT + 8],
 				data[position * VALUES_PER_MEASUREMENT + 9]);
 
-		float lin_x, lin_y, lin_z;
-		filter.getLinearAcceleration(&lin_x, &lin_y, &lin_z);
+		float qW, qX, qY, qZ;
+		filter->getQuaternion(&qW, &qX, &qY, &qZ);
+
+		// Calculate gravity
+		const float gravX = 2.0f * (qX * qZ - qW * qY);
+		const float gravY = 2.0f * (qW * qX + qY * qZ);
+		const float gravZ = 2.0f * (qW * qW - 0.5f + qZ * qZ);
+
+		// Calculate linear acceleration
+		const float linX = ax - gravX;
+		const float linY = ay - gravY;
+		const float linZ = az - gravZ;
 
 		sprintf(line, "%c%f%c%f%c%f", separator_char,
-				lin_x * SENSORS_GRAVITY_EARTH, separator_char,
-				lin_y * SENSORS_GRAVITY_EARTH, separator_char,
-				lin_z * SENSORS_GRAVITY_EARTH);
+				linX * SENSORS_GRAVITY_EARTH, separator_char,
+				linY * SENSORS_GRAVITY_EARTH, separator_char,
+				linZ * SENSORS_GRAVITY_EARTH);
 
 		return line;
 	};
@@ -235,21 +248,23 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 			});
 }
 
-void LSM9DS1Handler::sendMeasurementsJson(AsyncWebServerRequest *request) const {
+void LSM9DS1Handler::sendMeasurementsJson(
+		AsyncWebServerRequest *request) const {
 	char *measurements = new char[50];
 	uint32_t measuring_time = measurement_duration;
 	if (measuring) {
 		measuring_time = uint32_t(millis() - measurement_start);
 	}
-	sprintf(measurements, "{\"measurements\": %u, \"time\": %u}", measurements_stored, measuring_time);
+	sprintf(measurements, "{\"measurements\": %u, \"time\": %u}",
+			measurements_stored, measuring_time);
 	request->send(200, "application/json", measurements);
 }
 
-size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char, uint32_t &position,
-			std::string &buf,
-			const std::function<char* (uint8_t, uint32_t)> content_generator,
-			const std::vector<const char*> headers, uint8_t *buffer,
-			size_t maxlen) const {
+size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
+		uint32_t &position, std::string &buf,
+		const std::function<char* (uint8_t, uint32_t)> content_generator,
+		const std::vector<const char*> headers, uint8_t *buffer,
+		size_t maxlen) const {
 	maxlen = min(maxlen, (size_t) 1200);
 	size_t length = 0;
 	char *response = new char[maxlen + 200] { }; // include some buffer in case the line doesn't end exactly at the end of the packet size.
@@ -262,7 +277,8 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char, uint
 		length = 8;
 
 		for (uint8_t i = 0; i < headers.size(); i++) {
-			length += sprintf(response + length, "%c%s", separator_char, headers[i]);
+			length += sprintf(response + length, "%c%s", separator_char,
+					headers[i]);
 		}
 
 		length += sprintf(response + length, "%c", '\n');
@@ -276,8 +292,8 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char, uint
 		char *content = content_generator(separator_char, position);
 
 		length += sprintf(response + length, "%d%s%c",
-				uint32_t(data[position * VALUES_PER_MEASUREMENT]),
-				content, '\n');
+				uint32_t(data[position * VALUES_PER_MEASUREMENT]), content,
+				'\n');
 
 		delete[] content;
 		position++;
