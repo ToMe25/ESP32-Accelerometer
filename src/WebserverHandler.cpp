@@ -19,14 +19,13 @@
  */
 
 #include "WebserverHandler.h"
-
-using namespace std;
+#include <regex>
 
 WebserverHandler::WebserverHandler(int port, LSM9DS1Handler *handler) :
 		server(port), lsm9ds1(handler) {
 	using namespace std::placeholders;
 	// register website pages
-	function<void(AsyncWebServerRequest*)> on_get_index = bind(&WebserverHandler::on_get_index, this, _1);
+	std::function<void(AsyncWebServerRequest*)> on_get_index = bind(&WebserverHandler::on_get_index, this, _1);
 	register_url(HTTP_GET, "/", on_get_index);
 	register_url(HTTP_GET, "/index.html", on_get_index);
 
@@ -76,16 +75,16 @@ WebserverHandler::~WebserverHandler() {
 
 }
 
-void WebserverHandler::register_url(const uint8_t http_code, const char* url, function<void(AsyncWebServerRequest*)> callback) {
+void WebserverHandler::register_url(const uint8_t http_code, const char* url, std::function<void(AsyncWebServerRequest*)> callback) {
 	server.on(url, http_code, [this, callback](AsyncWebServerRequest *request) {
 		callback(request);
 	});
 }
 
 void WebserverHandler::on_not_found(AsyncWebServerRequest *request) {
-	string response = string(not_found_html);
-	replace_all(response, "$requested",
-			string(request->url().c_str()).substr(1));
+	std::string response = std::string(not_found_html);
+	response = std::regex_replace(response, std::regex("\\$requested"),
+			std::string(request->url().c_str()).substr(1));
 	request->send(404, "text/html", response.c_str());
 }
 
@@ -93,47 +92,46 @@ void WebserverHandler::on_get_index(AsyncWebServerRequest *request) {
 	if (!lsm9ds1->isMeasuring() && lsm9ds1->getStoredMeasurements() == 0) {
 		request->send(200, "text/html", settings_html);
 	} else if (lsm9ds1->isMeasuring()) {
-		string response = string(recording_html);
-		ostringstream converter;
+		std::string response = std::string(recording_html);
+		std::ostringstream converter;
 		converter << lsm9ds1->getStoredMeasurements();
-		replace_all(response, "$recorded", converter.str());
+		response = std::regex_replace(response, std::regex("\\$recorded"), converter.str());
 
 		converter.str("");
 		converter.clear();
 		converter << lsm9ds1->getMeasurements();
-		replace_all(response, "$recordings", converter.str());
-		replace_all(response, "$eta",
-				format_time(
-						(uint32_t) (lsm9ds1->getMeasurements()
-								- lsm9ds1->getStoredMeasurements())
-								* lsm9ds1->getMeasuringTime() / 1000));
+		response = std::regex_replace(response, std::regex("\\$recordings"),
+				converter.str());
 
-		uint64_t now_ms = millis();
-		replace_all(response, "$time",
-				format_time(now_ms - lsm9ds1->getMeasurementStart()));
+		const uint32_t eta = lsm9ds1->getMeasurements()
+				- lsm9ds1->getStoredMeasurements() * lsm9ds1->getMeasuringTime()
+						/ 1000;
+		response = std::regex_replace(response, std::regex("\\$eta"), format_time(eta));
+
+		response = std::regex_replace(response, std::regex("\\$time"),
+				format_time(millis() - lsm9ds1->getMeasurementStart()));
 		request->send(200, "text/html", response.c_str());
 	} else if (lsm9ds1->isCalculating()) {
-		string response = string(calculating_html);
-		ostringstream converter;
+		std::string response = std::string(calculating_html);
+		std::ostringstream converter;
 		converter << (uint16_t) lsm9ds1->getFilesCalculated();
-		replace_all(response, "$calculated", converter.str());
+		response = std::regex_replace(response, std::regex("\\$calculated"), converter.str());
 
 		converter.str("");
 		converter.clear();
 		converter << (uint16_t) lsm9ds1->MEASUREMENT_CSVS;
-		replace_all(response, "$files", converter.str());
-		replace_all(response, "$file", lsm9ds1->getFileCalculating());
+		response = std::regex_replace(response, std::regex("\\$files"), converter.str());
+		response = std::regex_replace(response, std::regex("\\$file"), lsm9ds1->getFileCalculating());
 
-		uint64_t now_ms = millis();
-		replace_all(response, "$time",
-				format_time(now_ms - lsm9ds1->getCalculationStart()));
+		response = std::regex_replace(response, std::regex("\\$time"),
+				format_time(millis() - lsm9ds1->getCalculationStart()));
 		request->send(200, "text/html", response.c_str());
 	} else {
-		string response = string(results_html);
-		ostringstream converter;
+		std::string response = std::string(results_html);
+		std::ostringstream converter;
 		converter << lsm9ds1->getStoredMeasurements();
-		replace_all(response, "$measurements", converter.str());
-		replace_all(response, "$time",
+		response = std::regex_replace(response, std::regex("\\$measurements"), converter.str());
+		response = std::regex_replace(response, std::regex("\\$time"),
 				format_time(lsm9ds1->getMeasurementDuration()));
 		request->send(200, "text/html", response.c_str());
 	}
@@ -143,13 +141,8 @@ void WebserverHandler::on_post_index(AsyncWebServerRequest *request) {
 	if (request->hasParam("start", true)
 			&& request->hasParam("measurements", true)
 			&& request->hasParam("rate", true)) {
-		istringstream converter(request->arg("measurements").c_str());
-		uint measurements = 0;
-		converter >> measurements;
-		converter.clear();
-		converter.str(request->arg("rate").c_str());
-		uint16_t rate = 0;
-		converter >> rate;
+		uint32_t measurements = atoi(request->arg("measurements").c_str());
+		uint16_t rate = atoi(request->arg("rate").c_str());
 		lsm9ds1->measure(measurements, rate);
 	}
 
@@ -160,15 +153,6 @@ void WebserverHandler::on_post_index(AsyncWebServerRequest *request) {
 	}
 
 	on_get_index(request);
-}
-
-void WebserverHandler::replace_all(string &str, const string &from,
-		const string &to) {
-	size_t start_pos = 0;
-	while ((start_pos = str.find(from, start_pos)) != string::npos) {
-		str.replace(start_pos, from.length(), to);
-		start_pos += to.length();
-	}
 }
 
 const char* WebserverHandler::format_time(uint64_t time_ms) {

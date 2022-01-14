@@ -338,8 +338,8 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		if (measuring) {
 			std::ostringstream converter;
 			converter
-					<< (measurements
-							- measurements_stored * measuring_time / 1000000);
+					<< ((measurements - measurements_stored) * measuring_time
+							/ 1000000);
 			response->addHeader("Retry-After", converter.str().c_str());
 		} else {
 			response->addHeader("Retry-After", "5");
