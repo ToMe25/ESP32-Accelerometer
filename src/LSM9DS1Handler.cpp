@@ -180,12 +180,24 @@ void LSM9DS1Handler::loop() {
 		switch(calculated) {
 		case 0:
 			all_csv_size = size;
+			Serial.print("Generating a full all csv took ");
+			Serial.print(millis() - start);
+			Serial.println("ms.");
+			Serial.print("all.csv size: ");
+			Serial.print(size);
+			Serial.println("b.");
 			break;
 		case 1:
 			acc_csv_size = size;
 			break;
 		case 2:
 			lin_acc_csv_size = size;
+			Serial.print("Generating a full linear acceleration csv took ");
+			Serial.print(millis() - start);
+			Serial.println("ms.");
+			Serial.print("linear_accelerometer.csv size: ");
+			Serial.print(size);
+			Serial.println("b.");
 			break;
 		case 3:
 			gyro_csv_size = size;
@@ -235,7 +247,7 @@ std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getAllGenerator() const
 			uint8_t separator_char, uint32_t position) {
 		char *content = new char[156] { 0 };
 		char *buffer = accel_gen(separator_char, position);
-		strcat(content, buffer);
+		strcpy(content, buffer);
 		delete[] buffer;
 
 		buffer = linear_accel_gen(separator_char, position);
@@ -382,15 +394,16 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 	char *response = new char[maxlen] { };
 
 	if (position == 0) {
-		strcat(response, "Time(ms)");
+		strcpy(response, "Time(ms)");
 		length = 8;
 
 		for (uint8_t i = 0; i < headers.size(); i++) {
-			length += sprintf(response + length, "%c%s", separator_char,
-					headers[i]);
+			response[length++] = separator_char;
+			strcpy(response + length, headers[i]);
+			length += strlen(headers[i]);
 		}
 
-		length += sprintf(response + length, "%c", '\n');
+		response[length++] = '\n';
 	}
 
 	if (measurements_stored == 0) {
@@ -400,9 +413,11 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 	while (length < maxlen - 13 * (headers.size() + 1) && position < measurements_stored) {
 		char *content = content_generator(separator_char, position);
 
-		length += sprintf(response + length, "%d%s%c",
-				uint32_t(data[position * VALUES_PER_MEASUREMENT]), content,
-				'\n');
+		length += sprintf(response + length, "%d",
+				(uint32_t) data[position * VALUES_PER_MEASUREMENT]);
+		strcpy(response + length, content);
+		length += strlen(content);
+		response[length++] = '\n';
 
 		delete[] content;
 		position++;
