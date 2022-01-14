@@ -49,7 +49,8 @@ public:
 	const uint8_t MEASUREMENT_CSVS = 5;
 
 	LSM9DS1Handler(uint32_t max_measurements);
-	virtual ~LSM9DS1Handler();
+	virtual ~LSM9DS1Handler() {
+	}
 
 	void begin();
 	void setupSensor();
@@ -281,8 +282,81 @@ private:
 	size_t generateMeasurementCsv(const uint8_t separator_char,
 			uint32_t &position,
 			const std::function<char* (uint8_t, uint32_t)> content_generator,
+			const std::vector<const char*> headers, char *buffer,
+			size_t maxlen) const;
+
+	/**
+	 * Generates a part of the a measurements csv.
+	 *
+	 * @param separator_char	The character to be used to separate values in the csv.
+	 * @param position			The index of the last value that was already written to the csv.
+	 * 							Used for the next call to continue where the last one left off.
+	 * @param content_generator	The function generating a single line of the csv.
+	 * @param headers			A vector containing the headers for the generated measurements csv.
+	 * @param buffer			The output buffer to write the content to.
+	 * @param maxlen			The max length of the content to generate.
+	 * @return	The number of bytes generated.
+	 */
+	size_t generateMeasurementCsv(const uint8_t separator_char,
+			uint32_t &position,
+			const std::function<char* (uint8_t, uint32_t)> content_generator,
 			const std::vector<const char*> headers, uint8_t *buffer,
 			size_t maxlen) const;
+
+	/**
+	 * The function running in a new task generating the measurement csv to send to a client.
+	 *
+	 * @param parameter	A pointer to a CsvGeneratorParameter containing all the required variables.
+	 */
+	static void csvGenerator(void *parameter);
+};
+
+class BufferStream : public Stream {
+public:
+	/**
+	 * Creates a new BufferStream with the given initial buffer size.
+	 * The buffer size can be increased by writing more bytes to it.
+	 *
+	 * @param buffer_size	The initial buffer size.
+	 */
+	BufferStream(size_t buffer_size = 20000);
+	virtual ~BufferStream() {
+	}
+
+	int available();
+	int peek();
+	int read();
+	size_t readBytes(char *buffer, size_t length);
+	size_t readBytes(uint8_t *buffer, size_t length);
+	String readString();
+
+	int availableForWrite();
+	size_t write(uint8_t b);
+	size_t write(const uint8_t *buffer, size_t size);
+	void flush() {
+	}
+	using Print::write;
+private:
+	cbuf *content;
+};
+
+struct CsvGeneratorParameter {
+	CsvGeneratorParameter(const LSM9DS1Handler *handler,
+			const std::shared_ptr<BufferStream> stream,
+			const std::function<char* (uint8_t, uint32_t)> content_generator,
+			const std::vector<const char*> headers, const size_t content_len,
+			const uint8_t separator_char) :
+			handler(handler), stream(stream), content_generator(
+					content_generator), headers(headers), content_len(
+					content_len), separator_char(separator_char) {
+	}
+
+	const LSM9DS1Handler *handler;
+	const std::shared_ptr<BufferStream> stream;
+	const std::function<char* (uint8_t, uint32_t)> content_generator;
+	const std::vector<const char*> headers;
+	const size_t content_len;
+	const uint8_t separator_char;
 };
 
 #endif /* SRC_LSM9DS1HANDLER_H_ */

@@ -29,10 +29,6 @@ LSM9DS1Handler::LSM9DS1Handler(uint32_t max_measurements) :
 
 }
 
-LSM9DS1Handler::~LSM9DS1Handler() {
-
-}
-
 void LSM9DS1Handler::setupSensor() {
 	lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
 
@@ -171,7 +167,7 @@ void LSM9DS1Handler::loop() {
 		}
 
 		const size_t buffer_size = 10000;
-		uint8_t *buffer = new uint8_t[buffer_size];
+		char *buffer = new char[buffer_size];
 		while (pos < measurements) {
 			size += generateMeasurementCsv(separator, pos,
 					content_generator, headers, buffer, buffer_size);
@@ -180,24 +176,12 @@ void LSM9DS1Handler::loop() {
 		switch(calculated) {
 		case 0:
 			all_csv_size = size;
-			Serial.print("Generating a full all csv took ");
-			Serial.print(millis() - start);
-			Serial.println("ms.");
-			Serial.print("all.csv size: ");
-			Serial.print(size);
-			Serial.println("b.");
 			break;
 		case 1:
 			acc_csv_size = size;
 			break;
 		case 2:
 			lin_acc_csv_size = size;
-			Serial.print("Generating a full linear acceleration csv took ");
-			Serial.print(millis() - start);
-			Serial.println("ms.");
-			Serial.print("linear_accelerometer.csv size: ");
-			Serial.print(size);
-			Serial.println("b.");
 			break;
 		case 3:
 			gyro_csv_size = size;
@@ -353,14 +337,17 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		separator_char = request->arg("separator")[0];
 	}
 
-	uint32_t position = 0;
-	request->send("text/csv", content_len,
-			[this, separator_char, position, content_generator, headers](
-					uint8_t *buffer, const size_t maxlen,
-					const size_t idx) mutable {
-				return generateMeasurementCsv(separator_char, position,
-						content_generator, headers, buffer, maxlen);
-			});
+	std::shared_ptr<BufferStream> stream = std::make_shared<BufferStream>();
+	CsvGeneratorParameter parameter(this, stream, content_generator, headers, content_len, separator_char);
+	TaskHandle_t handle;
+	xTaskCreate(csvGenerator, "csv generator", 3000, &parameter, 1, &handle);
+
+	request->onDisconnect([handle, stream]() {
+		if (stream->available() > 0) {
+			vTaskDelete(handle);
+		}
+	});
+	request->send(*stream, "text/csv", content_len);
 }
 
 void LSM9DS1Handler::sendMeasurementsJson(
@@ -387,23 +374,22 @@ void LSM9DS1Handler::sendCalculationsJson(
 size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		uint32_t &position,
 		const std::function<char* (uint8_t, uint32_t)> content_generator,
-		const std::vector<const char*> headers, uint8_t *buffer,
+		const std::vector<const char*> headers, char *buffer,
 		size_t maxlen) const {
 	maxlen = min(maxlen, (size_t) 1200);
 	size_t length = 0;
-	char *response = new char[maxlen] { };
 
 	if (position == 0) {
-		strcpy(response, "Time(ms)");
+		strcpy(buffer, "Time(ms)");
 		length = 8;
 
 		for (uint8_t i = 0; i < headers.size(); i++) {
-			response[length++] = separator_char;
-			strcpy(response + length, headers[i]);
+			buffer[length++] = separator_char;
+			strcpy(buffer + length, headers[i]);
 			length += strlen(headers[i]);
 		}
 
-		response[length++] = '\n';
+		buffer[length++] = '\n';
 	}
 
 	if (measurements_stored == 0) {
@@ -413,15 +399,29 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 	while (length < maxlen - 13 * (headers.size() + 1) && position < measurements_stored) {
 		char *content = content_generator(separator_char, position);
 
-		length += sprintf(response + length, "%d",
+		length += sprintf(buffer + length, "%d",
 				(uint32_t) data[position * VALUES_PER_MEASUREMENT]);
-		strcpy(response + length, content);
+		strcpy(buffer + length, content);
 		length += strlen(content);
-		response[length++] = '\n';
+		buffer[length++] = '\n';
 
 		delete[] content;
 		position++;
 	}
+
+	return min(length, maxlen);
+}
+
+size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
+		uint32_t &position,
+		const std::function<char* (uint8_t, uint32_t)> content_generator,
+		const std::vector<const char*> headers, uint8_t *buffer,
+		size_t maxlen) const {
+	maxlen = min(maxlen, (size_t) 1200);
+	char *response = new char[maxlen] { };
+
+	size_t length = generateMeasurementCsv(separator_char, position,
+			content_generator, headers, response, maxlen);
 
 	for (size_t i = 0; i < length; i++) {
 		buffer[i] = response[i];
@@ -429,4 +429,82 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 	delete[] response;
 
 	return min(length, maxlen);
+}
+
+void LSM9DS1Handler::csvGenerator(void *parameter) {
+	CsvGeneratorParameter *param = (CsvGeneratorParameter*) parameter;
+	const LSM9DS1Handler *handler = param->handler;
+	std::shared_ptr<BufferStream> stream = param->stream;
+	const std::function<char* (uint8_t, uint32_t)> content_generator =
+			param->content_generator;
+	const std::vector<const char*> headers = param->headers;
+	const size_t content_len = param->content_len;
+	const uint8_t separator_char = param->separator_char;
+	size_t generated = 0;
+	const size_t maxlen = 10000;
+	char *buffer = new char[maxlen];
+	uint32_t position = 0;
+	while (generated < content_len) {
+		int free = min((int) maxlen, stream->availableForWrite());
+		if (free > 1000) {
+			free = handler->generateMeasurementCsv(separator_char, position,
+					content_generator, headers, buffer, free);
+			generated += stream->write(buffer, free);
+		} else {
+			delay(1);
+		}
+	}
+	vTaskDelete(NULL);
+}
+
+BufferStream::BufferStream(size_t buffer_size) {
+	content = new cbuf(buffer_size);
+}
+
+int BufferStream::available() {
+	return content->available();
+}
+
+int BufferStream::peek() {
+	return content->peek();
+}
+
+int BufferStream::read() {
+	return content->read();
+}
+
+size_t BufferStream::readBytes(char *buffer, size_t length) {
+	return content->read(buffer, length);
+}
+
+size_t BufferStream::readBytes(uint8_t *buffer, size_t length) {
+	char *buf = new char[length];
+	length = min(content->read(buf, length), length);
+
+	for (size_t i = 0; i < length; i++) {
+		buffer[i] = buf[i];
+	}
+	return length;
+}
+
+String BufferStream::readString() {
+	char *buf = new char[content->available()];
+	content->read(buf, content->available());
+	return buf;
+}
+
+int BufferStream::availableForWrite() {
+	return content->room();
+}
+
+size_t BufferStream::write(uint8_t b) {
+	return write(&b, 1);
+}
+
+size_t BufferStream::write(const uint8_t *buffer, size_t size) {
+	if (size > content->room()) {
+		content->resizeAdd(size - content->room());
+	}
+
+	return content->write((const char*) buffer, size);;
 }
