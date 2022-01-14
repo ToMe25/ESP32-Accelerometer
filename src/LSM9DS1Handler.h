@@ -41,12 +41,12 @@ public:
 	 * The number of floats to be recorder per measurement.
 	 * Default is 1x timestamp + 3x accelerometer + 3x magnetometer + 3x gyroscope.
 	 */
-	static const uint8_t VALUES_PER_MEASUREMENT = 10;
+	const uint8_t VALUES_PER_MEASUREMENT = 10;
 
 	/**
 	 * The number of different measurement csvs that can be downloaded after recording measurements.
 	 */
-	static const uint8_t MEASUREMENT_CSVS = 5;
+	const uint8_t MEASUREMENT_CSVS = 5;
 
 	LSM9DS1Handler(uint32_t max_measurements);
 	virtual ~LSM9DS1Handler();
@@ -207,6 +207,7 @@ private:
 	const uint32_t data_size;
 
 	float *data = NULL;
+	uint32_t last_timestamp = 0;
 
 	uint32_t measurements_stored = 0;
 	uint32_t measurements = 0;
@@ -271,7 +272,6 @@ private:
 	 * @param separator_char	The character to be used to separate values in the csv.
 	 * @param position			The index of the last value that was already written to the csv.
 	 * 							Used for the next call to continue where the last one left off.
-	 * @param buf				A buffer string to store a small amount of data between calls.
 	 * @param content_generator	The function generating a single line of the csv.
 	 * @param headers			A vector containing the headers for the generated measurements csv.
 	 * @param buffer			The output buffer to write the content to.
@@ -279,7 +279,7 @@ private:
 	 * @return	The number of bytes generated.
 	 */
 	size_t generateMeasurementCsv(const uint8_t separator_char,
-			uint32_t &position, std::string &buf,
+			uint32_t &position,
 			const std::function<char* (uint8_t, uint32_t)> content_generator,
 			const std::vector<const char*> headers, uint8_t *buffer,
 			size_t maxlen) const;

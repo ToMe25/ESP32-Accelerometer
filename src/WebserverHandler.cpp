@@ -120,7 +120,7 @@ void WebserverHandler::on_get_index(AsyncWebServerRequest *request) {
 
 		converter.str("");
 		converter.clear();
-		converter << (uint16_t) LSM9DS1Handler::MEASUREMENT_CSVS;
+		converter << (uint16_t) lsm9ds1->MEASUREMENT_CSVS;
 		replace_all(response, "$files", converter.str());
 		replace_all(response, "$file", lsm9ds1->getFileCalculating());
 

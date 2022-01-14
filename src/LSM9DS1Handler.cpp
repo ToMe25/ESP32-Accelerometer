@@ -76,19 +76,14 @@ void LSM9DS1Handler::loop() {
 
 		uint64_t start_us = micros();
 
-		lsm.read();
-
 		sensors_event_t a, m, g, t;
-
 		lsm.getEvent(&a, &m, &g, &t);
 
-		if (measurements_stored > 0
-				&& a.timestamp - measurement_start
-						== uint32_t(
-								data[(measurements_stored - 1)
-										* VALUES_PER_MEASUREMENT])) {
+		if (measurements_stored > 0 && a.timestamp == last_timestamp) {
 			return;
-		}// TODO cache last timestamp to remove need for psram access
+		}
+
+		last_timestamp = a.timestamp;
 
 		data[measurements_stored * VALUES_PER_MEASUREMENT] = a.timestamp
 				- measurement_start;
@@ -127,7 +122,6 @@ void LSM9DS1Handler::loop() {
 		const uint64_t start = millis();
 		const uint8_t separator = ',';
 		uint32_t pos = 0;
-		std::string buf;
 		size_t size = 0;
 		std::function<char* (uint8_t, uint32_t)> content_generator;
 		std::vector<const char*> headers;
@@ -179,7 +173,7 @@ void LSM9DS1Handler::loop() {
 		const size_t buffer_size = 10000;
 		uint8_t *buffer = new uint8_t[buffer_size];
 		while (pos < measurements) {
-			size += generateMeasurementCsv(separator, pos, buf,
+			size += generateMeasurementCsv(separator, pos,
 					content_generator, headers, buffer, buffer_size);
 		}
 
@@ -348,12 +342,11 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 	}
 
 	uint32_t position = 0;
-	std::string buf = "";
 	request->send("text/csv", content_len,
-			[this, separator_char, position, buf, content_generator, headers](
+			[this, separator_char, position, content_generator, headers](
 					uint8_t *buffer, const size_t maxlen,
 					const size_t idx) mutable {
-				return generateMeasurementCsv(separator_char, position, buf,
+				return generateMeasurementCsv(separator_char, position,
 						content_generator, headers, buffer, maxlen);
 			});
 }
@@ -380,16 +373,13 @@ void LSM9DS1Handler::sendCalculationsJson(
 }
 
 size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
-		uint32_t &position, std::string &buf,
+		uint32_t &position,
 		const std::function<char* (uint8_t, uint32_t)> content_generator,
 		const std::vector<const char*> headers, uint8_t *buffer,
 		size_t maxlen) const {
 	maxlen = min(maxlen, (size_t) 1200);
 	size_t length = 0;
-	char *response = new char[maxlen + 200] { }; // include some buffer in case the line doesn't end exactly at the end of the packet size.
-
-	length = sprintf(response, buf.c_str());
-	buf.clear();
+	char *response = new char[maxlen] { };
 
 	if (position == 0) {
 		strcat(response, "Time(ms)");
@@ -407,7 +397,7 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		position++;
 	}
 
-	while (length < maxlen && position < measurements_stored) {
+	while (length < maxlen - 13 * (headers.size() + 1) && position < measurements_stored) {
 		char *content = content_generator(separator_char, position);
 
 		length += sprintf(response + length, "%d%s%c",
@@ -418,12 +408,7 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		position++;
 	}
 
-	if (length > maxlen) {
-		buf.append(std::string(response).substr(maxlen));
-		length = maxlen;
-	}
-
-	for (size_t i = 0; i < length && i < maxlen; i++) {
+	for (size_t i = 0; i < length; i++) {
 		buffer[i] = response[i];
 	}
 	delete[] response;

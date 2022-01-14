@@ -53,16 +53,15 @@ void setup() {
 	Serial.print("IP Address: ");
 	Serial.println(localhost);
 
-	if (!psramInit()) {
-		while(1) {
-			Serial.println("Failed to initialize psram!");
-			delay(1000);
-		}
+	setupOTA();
+
+	while (!psramInit()) {// Fails in debug mode for some reason
+		Serial.println("Failed to initialize psram!");
+		delay(1000);
 	}
 
 	server.begin();
 
-	setupOTA();
 	MDNS.addService("http", "tcp", 80);
 
 	sensorHandler.begin();
@@ -99,10 +98,15 @@ void setupOTA() {
 	});
 
 	ArduinoOTA.begin();
+
+	xTaskCreate([](void *params) {
+		while (true) {
+			ArduinoOTA.handle();
+			delay(10);
+		}
+	}, "OTA handler", 3000, NULL, 1, NULL);
 }
 
 void loop() {
 	sensorHandler.loop();
-
-	ArduinoOTA.handle();
 }
