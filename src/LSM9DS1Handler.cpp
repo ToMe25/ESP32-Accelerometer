@@ -19,6 +19,7 @@
  */
 
 #include "LSM9DS1Handler.h"
+#include "WebserverHandler.h"
 #include <sstream>
 #include <Adafruit_AHRS_Madgwick.h>
 
@@ -64,62 +65,156 @@ void LSM9DS1Handler::begin() {
 }
 
 void LSM9DS1Handler::loop() {
-	if (!measuring) {
+	if (measuring) {
+		if (measurements_stored >= measurements) {
+			measuring = false;
+			measurement_duration = millis() - measurement_start;
+			measuring_time = measurement_duration * 1000 / measurements;
+			calculating = true;
+			return;
+		}
+
+		uint64_t start_us = micros();
+
+		lsm.read();
+
+		sensors_event_t a, m, g, t;
+
+		lsm.getEvent(&a, &m, &g, &t);
+
+		if (measurements_stored > 0
+				&& a.timestamp - measurement_start
+						== uint32_t(
+								data[(measurements_stored - 1)
+										* VALUES_PER_MEASUREMENT])) {
+			return;
+		}// TODO cache last timestamp to remove need for psram access
+
+		data[measurements_stored * VALUES_PER_MEASUREMENT] = a.timestamp
+				- measurement_start;
+
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 1] =
+				a.acceleration.x;
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 2] =
+				a.acceleration.y;
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 3] =
+				a.acceleration.z;
+
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 4] = g.gyro.x;
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 5] = g.gyro.y;
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 6] = g.gyro.z;
+
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 7] = m.magnetic.x;
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 8] = m.magnetic.y;
+		data[measurements_stored * VALUES_PER_MEASUREMENT + 9] = m.magnetic.z;
+
+		measurements_stored++;
+
+		if (measurements_stored > 1) {
+			measuring_time = round(
+					(data[(measurements_stored - 1) * VALUES_PER_MEASUREMENT]
+							- data[(measurements_stored
+									- min(measurements_stored, (uint32_t) 10))
+									* VALUES_PER_MEASUREMENT]) * 1000
+							/ (min(measurements_stored, (uint32_t) 10) - 1));
+		}
+
+		delayMicroseconds(
+				measuring_time_target
+						- min(measuring_time_target,
+								(uint32_t) (micros() - start_us)));
+	} else if (calculating) {
+		const uint64_t start = millis();
+		const uint8_t separator = ',';
+		uint32_t pos = 0;
+		std::string buf;
+		size_t size = 0;
+		std::function<char* (uint8_t, uint32_t)> content_generator;
+		std::vector<const char*> headers;
+
+		switch(calculated) {
+		case 0:
+			calculation_start = start;
+			file_calculating = "all.csv";
+			content_generator = getAllGenerator();
+			headers = { "Acceleration X(m/s^2)", "Acceleration Y(m/s^2)",
+					"Acceleration Z(m/s^2)", "Linear Acceleration X(m/s^2)",
+					"Linear Acceleration Y(m/s^2)",
+					"Linear Acceleration Z(m/s^2)", "Rotation X(rad/s)",
+					"Rotation Y(rad/s)", "Rotation Z(rad/s)", "Magnetic X(uT)",
+					"Magnetic Y(uT)", "Magnetic Z(uT)" };
+			break;
+		case 1:
+			file_calculating = "accelerometer.csv";
+			content_generator = getDataContentGenerator(1, 3);
+			headers = { "Acceleration X(m/s^2)", "Acceleration Y(m/s^2)",
+					"Acceleration Z(m/s^2)" };
+			break;
+		case 2:
+			file_calculating = "linear_accelerometer.csv";
+			content_generator = getLinearAccelerationGenerator();
+			headers = { "Linear Acceleration X(m/s^2)",
+					"Linear Acceleration Y(m/s^2)",
+					"Linear Acceleration Z(m/s^2)" };
+			break;
+		case 3:
+			file_calculating = "gyroscope.csv";
+			content_generator = getDataContentGenerator(4, 3);
+			headers = { "Rotation X(rad/s)", "Rotation Y(rad/s)",
+					"Rotation Z(rad/s)" };
+			break;
+		case 4:
+			file_calculating = "magnetometer.csv";
+			content_generator = getDataContentGenerator(7, 3);
+			headers = { "Magnetic X(uT)", "Magnetic Y(uT)", "Magnetic Z(uT)" };
+			break;
+		default:
+			Serial.print("Trying to calculate size for unknown measurements csv with id ");
+			Serial.print(calculated);
+			Serial.println('.');
+			calculating = false;
+			return;
+		}
+
+		const size_t buffer_size = 10000;
+		uint8_t *buffer = new uint8_t[buffer_size];
+		while (pos < measurements) {
+			size += generateMeasurementCsv(separator, pos, buf,
+					content_generator, headers, buffer, buffer_size);
+		}
+
+		switch(calculated) {
+		case 0:
+			all_csv_size = size;
+			break;
+		case 1:
+			acc_csv_size = size;
+			break;
+		case 2:
+			lin_acc_csv_size = size;
+			break;
+		case 3:
+			gyro_csv_size = size;
+			break;
+		case 4:
+			mag_csv_size = size;
+			break;
+		default:
+			Serial.print("Trying to calculate size for unknown measurements csv with id ");
+			Serial.print(calculated);
+			Serial.println('.');
+			calculating = false;
+			file_calculating = "";
+			calculated = 0;
+		}
+
+		calculated++;
+		if (calculated >= MEASUREMENT_CSVS) {
+			calculating = false;
+		}
+	} else {
 		delay(1);
-		return;
-	} else if (measurements_stored >= measurements) {
-		measuring = false;
-		measurement_duration = millis() - measurement_start;
-		measuring_time = measurement_duration * 1000 / measurements;
-		return;
 	}
-
-	uint64_t start_us = micros();
-
-	lsm.read();
-
-	sensors_event_t a, m, g, t;
-
-	lsm.getEvent(&a, &m, &g, &t);
-
-	if (measurements_stored > 0
-			&& a.timestamp - measurement_start
-					== uint32_t(
-							data[(measurements_stored - 1)
-									* VALUES_PER_MEASUREMENT])) {
-		return;
-	}
-
-	data[measurements_stored * VALUES_PER_MEASUREMENT] = a.timestamp
-			- measurement_start;
-
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 1] = a.acceleration.x;
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 2] = a.acceleration.y;
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 3] = a.acceleration.z;
-
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 4] = g.gyro.x;
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 5] = g.gyro.y;
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 6] = g.gyro.z;
-
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 7] = m.magnetic.x;
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 8] = m.magnetic.y;
-	data[measurements_stored * VALUES_PER_MEASUREMENT + 9] = m.magnetic.z;
-
-	measurements_stored++;
-
-	if (measurements_stored > 1) {
-		measuring_time = round(
-				(data[(measurements_stored - 1) * VALUES_PER_MEASUREMENT]
-						- data[(measurements_stored
-								- min(measurements_stored, (uint32_t) 10))
-								* VALUES_PER_MEASUREMENT]) * 1000
-						/ (min(measurements_stored, (uint32_t) 10) - 1));
-	}
-
-	delayMicroseconds(
-			measuring_time_target
-					- min(measuring_time_target,
-							uint32_t(micros() - start_us)));
 }
 
 void LSM9DS1Handler::measure(uint32_t measurements, uint16_t freq) {
@@ -230,7 +325,22 @@ std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getDataContentGenerator
 
 void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		const std::function<char* (uint8_t, uint32_t)> content_generator,
-		const std::vector<const char*> headers) const {
+		const std::vector<const char*> headers, const size_t content_len) const {
+	if (measurements_stored == 0 || measuring || calculating) {
+		AsyncWebServerResponse *response = request->beginResponse(503,
+				"text/html", unavailable_html);
+		if (measuring) {
+			std::ostringstream converter;
+			converter
+					<< (measurements
+							- measurements_stored * measuring_time / 1000000);
+			response->addHeader("Retry-After", converter.str().c_str());
+		} else {
+			response->addHeader("Retry-After", "5");
+		}
+		request->send(response);
+		return;
+	}
 
 	uint8_t separator_char = ',';
 	if (request->hasArg("separator")) {
@@ -239,7 +349,7 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 
 	uint32_t position = 0;
 	std::string buf = "";
-	request->sendChunked("text/csv",
+	request->send("text/csv", content_len,
 			[this, separator_char, position, buf, content_generator, headers](
 					uint8_t *buffer, const size_t maxlen,
 					const size_t idx) mutable {
@@ -258,6 +368,15 @@ void LSM9DS1Handler::sendMeasurementsJson(
 	sprintf(measurements, "{\"measurements\": %u, \"time\": %u}",
 			measurements_stored, measuring_time);
 	request->send(200, "application/json", measurements);
+}
+
+void LSM9DS1Handler::sendCalculationsJson(
+		AsyncWebServerRequest *request) const {
+	char *calculations = new char[70];
+	uint32_t calculating_time = millis() - calculation_start;
+	sprintf(calculations, "{\"calculated\": %u, \"file\": \"%s\", \"time\": %u}",
+			calculated, file_calculating.c_str(), calculating_time);
+	request->send(200, "application/json", calculations);
 }
 
 size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,

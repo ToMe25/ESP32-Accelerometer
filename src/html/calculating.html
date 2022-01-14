@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Esp Accelerometer control</title>
+<link rel="stylesheet" href="index.css" />
+<meta http-equiv="refresh" content="5" />
+<script type="text/javascript" src="calculating.js"></script>
+</head>
+<body>
+	<form method="post" action="index.html" class="main">
+		<h1>Calculating measurement csv sizes...</h1>
+		Please wait for the calculation to finish.<br />
+		<h2>Progress:</h2>
+		<progress id="progress" max="$files" value="$calculated"></progress>
+		<label for="progress"><span id="calculated">$calculated</span>/<span id="files">$files</span> file sizes calculated.</label> <br />
+		<p>Currently calculating: <span id="file">$file</span></p>
+		<p>Time Spent: <span id="time">$time</span></p>
+		<button class="redbtn smallbtn" name="cancel" value="cancel">Cancel</button>
+	</form>
+</body>
+</html>

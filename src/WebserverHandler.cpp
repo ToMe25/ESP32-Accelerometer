@@ -41,6 +41,10 @@ WebserverHandler::WebserverHandler(int port, LSM9DS1Handler *handler) :
 		request->send(200, "text/javascript", recording_js);
 	});
 
+	server.on("/calculating.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+		request->send(200, "text/javascript", calculating_js);
+	});
+
 	server.onNotFound([this](AsyncWebServerRequest *request) {
 		on_not_found(request);
 	});
@@ -61,8 +65,11 @@ WebserverHandler::WebserverHandler(int port, LSM9DS1Handler *handler) :
 	register_url(HTTP_ANY, "/magnetometer.csv",
 			bind(&LSM9DS1Handler::sendMagnetometerCsv, lsm9ds1, _1));
 
-	register_url(HTTP_ANY, "/measurements.json",
+	register_url(HTTP_GET, "/measurements.json",
 			bind(&LSM9DS1Handler::sendMeasurementsJson, lsm9ds1, _1));
+
+	register_url(HTTP_GET, "/calculations.json",
+			bind(&LSM9DS1Handler::sendCalculationsJson, lsm9ds1, _1));
 }
 
 WebserverHandler::~WebserverHandler() {
@@ -92,17 +99,34 @@ void WebserverHandler::on_get_index(AsyncWebServerRequest *request) {
 		replace_all(response, "$recorded", converter.str());
 
 		converter.str("");
+		converter.clear();
 		converter << lsm9ds1->getMeasurements();
 		replace_all(response, "$recordings", converter.str());
 		replace_all(response, "$eta",
 				format_time(
-						uint(lsm9ds1->getMeasurements()
+						(uint32_t) (lsm9ds1->getMeasurements()
 								- lsm9ds1->getStoredMeasurements())
-								* lsm9ds1->getMeasuringTime()));
+								* lsm9ds1->getMeasuringTime() / 1000));
 
 		uint64_t now_ms = millis();
 		replace_all(response, "$time",
 				format_time(now_ms - lsm9ds1->getMeasurementStart()));
+		request->send(200, "text/html", response.c_str());
+	} else if (lsm9ds1->isCalculating()) {
+		string response = string(calculating_html);
+		ostringstream converter;
+		converter << (uint16_t) lsm9ds1->getFilesCalculated();
+		replace_all(response, "$calculated", converter.str());
+
+		converter.str("");
+		converter.clear();
+		converter << (uint16_t) LSM9DS1Handler::MEASUREMENT_CSVS;
+		replace_all(response, "$files", converter.str());
+		replace_all(response, "$file", lsm9ds1->getFileCalculating());
+
+		uint64_t now_ms = millis();
+		replace_all(response, "$time",
+				format_time(now_ms - lsm9ds1->getCalculationStart()));
 		request->send(200, "text/html", response.c_str());
 	} else {
 		string response = string(results_html);

@@ -26,10 +26,13 @@
 
 extern const char settings_html[] asm("_binary_src_html_settings_html_start");
 extern const char recording_html[] asm("_binary_src_html_recording_html_start");
+extern const char calculating_html[] asm("_binary_src_html_calculating_html_start");
 extern const char results_html[] asm("_binary_src_html_results_html_start");
-extern const char not_found_html[] asm("_binary_src_html_404_html_start");
+extern const char unavailable_html[] asm("_binary_src_html_unavailable_html_start");
+extern const char not_found_html[] asm("_binary_src_html_not_found_html_start");
 extern const char index_css[] asm("_binary_src_html_index_css_start");
 extern const char recording_js[] asm("_binary_src_html_recording_js_start");
+extern const char calculating_js[] asm("_binary_src_html_calculating_js_start");
 
 class WebserverHandler {
 public:

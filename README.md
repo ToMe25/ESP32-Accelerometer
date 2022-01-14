@@ -41,10 +41,12 @@ Connections for SPI:
 |GPIO 32  |SDOAG, SDOM   |
 
 # Usage
- 1. Open http://esp-accelerometer/ in your browser
+ 1. Open `http://esp-accelerometer/` or `http://esp-accelerometer.local/` in your browser
  2. Enter the measuring frequency and the number of measurements on this page<br/>
  ![pre-recording-settings](https://raw.githubusercontent.com/ToMe25/ESP32-Accelerometer/master/images/pre-recording-settings.png)
- 3. Wait for this page to go away<br/>
+ 3. Wait for the measurement to finish, as indicated by this page<br/>
  ![recording-please-wait](https://raw.githubusercontent.com/ToMe25/ESP32-Accelerometer/master/images/recording-please-wait.png)
- 4. Download the data you are interested from this page<br/>
+ 4. Wait for the esp to finish the download file sizes, as indicated by this page<br/>
+ ![calculating-please-wait](https://raw.githubusercontent.com/ToMe25/ESP32-Accelerometer/master/images/calculating-please-wait.png)
+ 5. Download the data you are interested from this page<br/>
  ![recording-downloads](https://raw.githubusercontent.com/ToMe25/ESP32-Accelerometer/master/images/recording-downloads.png)

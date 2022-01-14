@@ -35,14 +35,19 @@ const uint8_t LSM9DS1_MCS = 26;
 #undef LSM9DS1_SPI
 #endif
 
-/**
- * The number of floats to be recorder per measurement.
- * Default is 1x timestamp + 3x accelerometer + 3x magnetometer + 3x gyroscope.
- */
-const uint8_t VALUES_PER_MEASUREMENT = 10;
-
 class LSM9DS1Handler {
 public:
+	/**
+	 * The number of floats to be recorder per measurement.
+	 * Default is 1x timestamp + 3x accelerometer + 3x magnetometer + 3x gyroscope.
+	 */
+	static const uint8_t VALUES_PER_MEASUREMENT = 10;
+
+	/**
+	 * The number of different measurement csvs that can be downloaded after recording measurements.
+	 */
+	static const uint8_t MEASUREMENT_CSVS = 5;
+
 	LSM9DS1Handler(uint32_t max_measurements);
 	virtual ~LSM9DS1Handler();
 
@@ -65,34 +70,38 @@ public:
 				"Linear Acceleration Z(m/s^2)", "Rotation X(rad/s)",
 				"Rotation Y(rad/s)", "Rotation Z(rad/s)", "Magnetic X(uT)",
 				"Magnetic Y(uT)", "Magnetic Z(uT)" };
-		sendMeasurementsCsv(request, getAllGenerator(), headers);
+		sendMeasurementsCsv(request, getAllGenerator(), headers, all_csv_size);
 	}
 
 	void sendAccelerometerCsv(AsyncWebServerRequest *request) const {
 		const std::vector<const char*> headers = { "Acceleration X(m/s^2)",
 				"Acceleration Y(m/s^2)", "Acceleration Z(m/s^2)" };
-		sendMeasurementsCsv(request, headers, 1);
+		sendMeasurementsCsv(request, headers, 1, acc_csv_size);
 	}
 
 	void sendLinearAccelerometerCsv(AsyncWebServerRequest *request) const {
-		const std::vector<const char*> headers = { "Linear Acceleration X(m/s^2)",
-				"Linear Acceleration Y(m/s^2)", "Linear Acceleration Z(m/s^2)" };
-		sendMeasurementsCsv(request, getLinearAccelerationGenerator(), headers);
+		const std::vector<const char*> headers = {
+				"Linear Acceleration X(m/s^2)", "Linear Acceleration Y(m/s^2)",
+				"Linear Acceleration Z(m/s^2)" };
+		sendMeasurementsCsv(request, getLinearAccelerationGenerator(), headers,
+				lin_acc_csv_size);
 	}
 
 	void sendGyroscopeCsv(AsyncWebServerRequest *request) const {
 		const std::vector<const char*> headers = { "Rotation X(rad/s)",
 				"Rotation Y(rad/s)", "Rotation Z(rad/s)" };
-		sendMeasurementsCsv(request, headers, 4);
+		sendMeasurementsCsv(request, headers, 4, gyro_csv_size);
 	}
 
 	void sendMagnetometerCsv(AsyncWebServerRequest *request) const {
 		const std::vector<const char*> headers = { "Magnetic X(uT)",
 				"Magnetic Y(uT)", "Magnetic Z(uT)" };
-		sendMeasurementsCsv(request, headers, 7);
+		sendMeasurementsCsv(request, headers, 7, mag_csv_size);
 	}
 
 	void sendMeasurementsJson(AsyncWebServerRequest *request) const;
+
+	void sendCalculationsJson(AsyncWebServerRequest *request) const;
 
 	const uint32_t getStoredMeasurements() const {
 		return measurements_stored;
@@ -102,6 +111,11 @@ public:
 		return measurements;
 	}
 
+	/**
+	 * Checks whether the esp is currently recording measurements.
+	 *
+	 * @return	True if a measurement is in progress.
+	 */
 	const bool isMeasuring() const {
 		return measuring;
 	}
@@ -133,9 +147,51 @@ public:
 		return measurement_duration;
 	}
 
+	/**
+	 * Checks whether the esp is currently generating the output files to determine their size.
+	 *
+	 * @return	True if the esp is generating the output files for this purpose.
+	 */
+	const bool isCalculating() const {
+		return calculating;
+	}
+
+	/**
+	 * Gets the name of the measurements csv for which the size is currently being calculated.
+	 *
+	 * @return	The name of the csv being generated.
+	 */
+	const std::string getFileCalculating() const {
+		return file_calculating;
+	}
+
+	/**
+	 * Gets the number of measurement csvs for which the file size has already be determined.
+	 *
+	 * @return	The number of measurement csvs for which the file size has already be determined.
+	 */
+	const uint8_t getFilesCalculated() const {
+		return calculated;
+	}
+
+	/**
+	 * Get the calculation start time in milliseconds.
+	 *
+	 * @return	The calculation start time in milliseconds.
+	 */
+	const uint64_t getCalculationStart() const {
+		return calculation_start;
+	}
+
+	/**
+	 * Resets the LSM0DS1Handler to a state where it is neither recording measurements nor calculating csv sizes.
+	 */
 	void resetMeasurements() {
 		measurements_stored = 0;
 		measuring = false;
+		file_calculating = "";
+		calculated = 0;
+		calculating = false;
 	}
 
 private:
@@ -143,7 +199,8 @@ private:
 	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1(); // Use I2C to connect to the lsm9ds1
 #endif
 #ifdef LSM9DS1_SPI
-	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1(22, 32, 21, LSM9DS1_XGCS, LSM9DS1_MCS); // Use Software SPI to connect to the lsm9ds1
+	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1(22, 32, 21, LSM9DS1_XGCS,
+			LSM9DS1_MCS); // Use Software SPI to connect to the lsm9ds1
 #endif
 
 	const uint32_t measurements_max;
@@ -163,21 +220,36 @@ private:
 
 	bool measuring = false;
 
+	std::string file_calculating;
+	uint8_t calculated = 0;
+	uint64_t calculation_start = 0;
+	bool calculating = false;
+
+	size_t all_csv_size = 0;
+	size_t lin_acc_csv_size = 0;
+	size_t acc_csv_size = 0;
+	size_t gyro_csv_size = 0;
+	size_t mag_csv_size = 0;
+
 	std::function<char* (uint8_t, uint32_t)> getAllGenerator() const;
 	std::function<char* (uint8_t, uint32_t)> getLinearAccelerationGenerator() const;
-	std::function<char* (uint8_t, uint32_t)> getDataContentGenerator(const uint8_t index, uint8_t channels = 3) const;
+	std::function<char* (uint8_t, uint32_t)> getDataContentGenerator(
+			const uint8_t index, uint8_t channels = 3) const;
 
 	/**
 	 * Generates a measurements csv and sends it to a client.
 	 *
-	 * @param request	The HTTP web request requesting the measurements csv.
-	 * @param headers	A vector containing the headers for the generated measurements csv.
-	 * @param index		The index of the first value to to write to the csv in a measurement.
+	 * @param request		The HTTP web request requesting the measurements csv.
+	 * @param headers		A vector containing the headers for the generated measurements csv.
+	 * @param index			The index of the first value to to write to the csv in a measurement.
+	 * @param content_len	The total size of the measurements csv in bytes.
 	 */
 	void sendMeasurementsCsv(AsyncWebServerRequest *request,
-			const std::vector<const char*> headers, const uint8_t index) const {
+			const std::vector<const char*> headers, const uint8_t index,
+			const size_t content_len) const {
 		sendMeasurementsCsv(request,
-				getDataContentGenerator(index, headers.size()), headers);
+				getDataContentGenerator(index, headers.size()), headers,
+				content_len);
 	}
 
 	/**
@@ -186,10 +258,12 @@ private:
 	 * @param request			The HTTP web request requesting the measurements csv.
 	 * @param content_generator	The function generating a single line of the measurements csv.
 	 * @param headers			A vector containing the headers for the generated measurements csv.
+	 * @param content_len		The total size of the measurements csv in bytes.
 	 */
 	void sendMeasurementsCsv(AsyncWebServerRequest *request,
 			const std::function<char* (uint8_t, uint32_t)> content_generator,
-			const std::vector<const char*> headers) const;
+			const std::vector<const char*> headers,
+			const size_t content_len) const;
 
 	/**
 	 * Generates a part of the a measurements csv.
@@ -204,8 +278,8 @@ private:
 	 * @param maxlen			The max length of the content to generate.
 	 * @return	The number of bytes generated.
 	 */
-	size_t generateMeasurementCsv(const uint8_t separator_char, uint32_t &position,
-			std::string &buf,
+	size_t generateMeasurementCsv(const uint8_t separator_char,
+			uint32_t &position, std::string &buf,
 			const std::function<char* (uint8_t, uint32_t)> content_generator,
 			const std::vector<const char*> headers, uint8_t *buffer,
 			size_t maxlen) const;
