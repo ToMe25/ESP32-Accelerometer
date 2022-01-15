@@ -21,8 +21,8 @@
 #ifndef SRC_WEBSERVERHANDLER_H_
 #define SRC_WEBSERVERHANDLER_H_
 
+#include "LSM9DS1Handler.h"
 #include <ESPAsyncWebServer.h>
-#include <LSM9DS1Handler.h>
 
 extern const char settings_html[] asm("_binary_src_html_settings_html_start");
 extern const char recording_html[] asm("_binary_src_html_recording_html_start");
@@ -36,7 +36,7 @@ extern const char calculating_js[] asm("_binary_src_html_calculating_js_start");
 
 class WebserverHandler {
 public:
-	WebserverHandler(int port, LSM9DS1Handler *handler);
+	WebserverHandler(uint16_t port, LSM9DS1Handler *handler);
 	virtual ~WebserverHandler() {
 	}
 
@@ -48,7 +48,7 @@ public:
 	void on_get_index(AsyncWebServerRequest *request);
 	void on_post_index(AsyncWebServerRequest *request);
 
-	const char* format_time(uint64_t time_ms);
+	const std::string format_time(uint64_t time_ms);
 
 private:
 	AsyncWebServer server;

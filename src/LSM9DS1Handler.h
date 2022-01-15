@@ -49,13 +49,17 @@ public:
 	const uint8_t MEASUREMENT_CSVS = 5;
 
 	/**
+	 * The bit to be set in the EventGroup when starting a measurement.
+	 */
+	const EventBits_t MEASURE_START_BIT = 1;
+
+	/**
 	 * Creates a new LSM9DS1Handler for the given maximum amount of measurements.
 	 *
 	 * @param max_measurements	The max amount of measurements to be stored in this LSM9DS1Handler.
 	 */
 	LSM9DS1Handler(uint32_t max_measurements);
-	virtual ~LSM9DS1Handler() {
-	}
+	virtual ~LSM9DS1Handler();
 
 	void begin();
 	void setupSensor();
@@ -202,9 +206,8 @@ public:
 
 private:
 #ifdef LSM9DS1_I2C
-	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1(); // Use I2C to connect to the lsm9ds1
-#endif
-#ifdef LSM9DS1_SPI
+	Adafruit_LSM9DS1 lsm; // Use I2C to connect to the lsm9ds1
+#elif defined(LSM9DS1_SPI)
 	Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1(22, 32, 21, LSM9DS1_XGCS,
 			LSM9DS1_MCS); // Use Software SPI to connect to the lsm9ds1
 #endif
@@ -226,6 +229,7 @@ private:
 	uint32_t measurement_duration = 0;
 
 	bool measuring = false;
+	EventGroupHandle_t eventGroup;
 
 	std::string file_calculating;
 	uint8_t calculated = 0;
@@ -338,7 +342,9 @@ public:
 	size_t readBytes(uint8_t *buffer, size_t length);
 	String readString();
 
-	int availableForWrite();
+	int availableForWrite() {
+		return free;
+	}
 	size_t write(uint8_t b);
 	size_t write(const uint8_t *buffer, size_t size);
 	void flush() {
@@ -346,7 +352,9 @@ public:
 	using Print::write;
 
 	/**
-	 * Sets the EventGroup to notify when more then 1000 bytes are free in the internal buffer.
+	 * Sets the EventGroup to notify when something happens.
+	 * There is one notification for when 1000 or more bytes are free in the internal buffer.
+	 * And another one for when the stream is empty.
 	 *
 	 * @param group	The EventGroup to notify.
 	 */
@@ -355,16 +363,9 @@ public:
 	}
 
 	/**
-	 * Sets the EventBits to set in the EventGroup when more then 1000 bytes are free in the internal buffer.
-	 *
-	 * @param bits	The bits to set in the EventGroup.
-	 */
-	void setEventBits(EventBits_t bits) {
-		eventBits = bits;
-	}
-
-	/**
-	 * Gets the EventGroup that gets notified when more then 1000 bytes are free in the internal buffer.
+	 * Gets the EventGroup to notify when something happens.
+	 * There is one notification for when 1000 or more bytes are free in the internal buffer.
+	 * And another one for when the stream is empty.
 	 *
 	 * @return	The EventGroup that gets notified.
 	 */
@@ -373,33 +374,42 @@ public:
 	}
 
 	/**
-	 * Gets the EventBits that get set when more then 1000 bytes are free in the internal buffer.
-	 *
-	 * @return	The bits that get set in the EventGroup.
+	 * The bit that is set in the EventGroup when 1000 bytes or more are free in the internal buffer.
 	 */
-	EventBits_t getEventBits() const {
-		return eventBits;
-	}
+	const EventBits_t FREE_SPACE_BIT = 1;
+
+	/**
+	 * The bit that is set in the EventGroup when the buffer is completely empty.
+	 */
+	const EventBits_t EMPTY_BIT = 1 << 1;
 private:
 	cbuf *content;
+	size_t free;
 	EventGroupHandle_t eventGroup;
-	EventBits_t eventBits;
+	bool empty = false;
 };
 
 struct CsvGeneratorParameter {
-	CsvGeneratorParameter(const LSM9DS1Handler *handler,
-			const std::shared_ptr<BufferStream> stream,
-			const std::function<char* (uint8_t, uint32_t)> content_generator,
+	CsvGeneratorParameter(const LSM9DS1Handler *handler, BufferStream *stream,
+			size_t buffer_len, char *buffer,
+			const std::function<char* (uint8_t, uint32_t)> content_gen,
 			const std::vector<const char*> headers, const size_t content_len,
 			const uint8_t separator_char) :
-			handler(handler), stream(stream), content_generator(
-					content_generator), headers(headers), content_len(
+			handler(handler), stream(stream), buffer_len(buffer_len), buffer(
+					buffer), content_gen(content_gen), headers(headers), content_len(
 					content_len), separator_char(separator_char) {
 	}
 
+	~CsvGeneratorParameter() {
+		delete[] buffer;
+		delete stream;
+	}
+
 	const LSM9DS1Handler *handler;
-	const std::shared_ptr<BufferStream> stream;
-	const std::function<char* (uint8_t, uint32_t)> content_generator;
+	BufferStream *stream;
+	size_t buffer_len;
+	char *buffer;
+	const std::function<char* (uint8_t, uint32_t)> content_gen;
 	const std::vector<const char*> headers;
 	const size_t content_len;
 	const uint8_t separator_char;

@@ -25,8 +25,13 @@
 
 LSM9DS1Handler::LSM9DS1Handler(uint32_t max_measurements) :
 		measurements_max(max_measurements), data_size(
-				max_measurements * VALUES_PER_MEASUREMENT * sizeof(float)) {
+				max_measurements * VALUES_PER_MEASUREMENT * sizeof(float)),
+				eventGroup(xEventGroupCreate()) {
+}
 
+LSM9DS1Handler::~LSM9DS1Handler() {
+	free(data);
+	vTaskDelete(eventGroup);
 }
 
 void LSM9DS1Handler::begin() {
@@ -39,9 +44,7 @@ void LSM9DS1Handler::begin() {
 
 #ifdef LSM9DS1_I2C
 	Serial.println("Connected to the lsm9ds1 using I2C.");
-#endif
-
-#ifdef LSM9DS1_SPI
+#elif defined(LSM9DS1_SPI)
 	Serial.println("Connected to the lsm9ds1 using SPI.");
 #endif
 
@@ -173,6 +176,8 @@ void LSM9DS1Handler::loop() {
 					content_generator, headers, buffer, buffer_size);
 		}
 
+		delete[] buffer;
+
 		switch(calculated) {
 		case 0:
 			all_csv_size = size;
@@ -203,7 +208,7 @@ void LSM9DS1Handler::loop() {
 			calculating = false;
 		}
 	} else {
-		delay(20);
+		xEventGroupWaitBits(eventGroup, MEASURE_START_BIT, pdTRUE, pdTRUE, 500);
 	}
 }
 
@@ -218,6 +223,7 @@ void LSM9DS1Handler::measure(uint32_t measurements, uint16_t freq) {
 	measuring = true;
 
 	measurement_start = millis();
+	xEventGroupSetBits(eventGroup, MEASURE_START_BIT);
 }
 
 std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getAllGenerator() const {
@@ -337,17 +343,22 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		separator_char = request->arg("separator")[0];
 	}
 
-	std::shared_ptr<BufferStream> stream = std::make_shared<BufferStream>(25000);
+	BufferStream *stream = new BufferStream(25000);
 	EventGroupHandle_t eventGroup = xEventGroupCreate();
 	stream->setEventGroup(eventGroup);
-	CsvGeneratorParameter parameter(this, stream, content_generator, headers, content_len, separator_char);
+	const size_t maxlen = 5000;
+	char *buffer = new char[maxlen];
+	std::shared_ptr<CsvGeneratorParameter> parameter = std::make_shared<
+			CsvGeneratorParameter>(this, stream, maxlen, buffer,
+			content_generator, headers, content_len, separator_char);
 	TaskHandle_t handle;
-	xTaskCreate(csvGenerator, "csv generator", 3000, &parameter, 1, &handle);
+	xTaskCreate(csvGenerator, "csv generator", 3000, parameter.get(), 1, &handle);
 
-	request->onDisconnect([handle, stream, eventGroup]() {
-		if (stream->available() > 0) {
+	request->onDisconnect([handle, parameter]() {
+		if (parameter->buffer_len > 0) {
+			parameter->buffer_len = 0;
 			vTaskDelete(handle);
-			vEventGroupDelete(eventGroup);
+			vEventGroupDelete(parameter->stream->getEventGroup());
 		}
 	});
 	request->send(*stream, "text/csv", content_len);
@@ -363,6 +374,7 @@ void LSM9DS1Handler::sendMeasurementsJson(
 	sprintf(measurements, "{\"measurements\": %u, \"time\": %u}",
 			measurements_stored, measuring_time);
 	request->send(200, "application/json", measurements);
+	delete[] measurements;
 }
 
 void LSM9DS1Handler::sendCalculationsJson(
@@ -372,6 +384,7 @@ void LSM9DS1Handler::sendCalculationsJson(
 	sprintf(calculations, "{\"calculated\": %u, \"file\": \"%s\", \"time\": %u}",
 			calculated, file_calculating.c_str(), calculating_time);
 	request->send(200, "application/json", calculations);
+	delete[] calculations;
 }
 
 size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
@@ -419,57 +432,53 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		const std::function<char* (uint8_t, uint32_t)> content_generator,
 		const std::vector<const char*> headers, uint8_t *buffer,
 		size_t maxlen) const {
-	char *response = new char[maxlen] { };
-
-	size_t length = generateMeasurementCsv(separator_char, position,
-			content_generator, headers, response, maxlen);
-
-	for (size_t i = 0; i < length; i++) {
-		buffer[i] = response[i];
-	}
-	delete[] response;
-
-	return min(length, maxlen);
+	return generateMeasurementCsv(separator_char, position,
+			content_generator, headers, (char*) buffer, maxlen);
 }
 
 void LSM9DS1Handler::csvGenerator(void *parameter) {
 	CsvGeneratorParameter *param = (CsvGeneratorParameter*) parameter;
 	const LSM9DS1Handler *handler = param->handler;
-	std::shared_ptr<BufferStream> stream = param->stream;
-	const std::function<char* (uint8_t, uint32_t)> content_generator =
-			param->content_generator;
+	BufferStream *stream = param->stream;
+	size_t *maxlen = &param->buffer_len;
+	char *buffer = param->buffer;
+	const std::function<char* (uint8_t, uint32_t)> content_gen =
+			param->content_gen;
 	const EventGroupHandle_t eventGroup = stream->getEventGroup();
-	const EventBits_t eventBits = stream->getEventBits();
 	const std::vector<const char*> headers = param->headers;
 	const size_t content_len = param->content_len;
 	const uint8_t separator_char = param->separator_char;
 
 	size_t generated = 0;
-	const size_t maxlen = 5000;
-	char *buffer = new char[maxlen];
 	uint32_t position = 0;
 
 	while (generated < content_len) {
-		int free = min((int) maxlen, stream->availableForWrite());
+		int free = min((int) *maxlen, stream->availableForWrite());
 		if (free >= 1000) {
 			free = handler->generateMeasurementCsv(separator_char, position,
-					content_generator, headers, buffer, free);
+					content_gen, headers, buffer, free);
 			generated += stream->write(buffer, free);
 		} else {
-			xEventGroupWaitBits(eventGroup, eventBits, pdTRUE, pdTRUE,
+			xEventGroupWaitBits(eventGroup, stream->FREE_SPACE_BIT, pdTRUE, pdFALSE,
 					500 / portTICK_PERIOD_MS);
+		}
+
+		if (*maxlen == 0) {
+			return;
 		}
 	}
 
-	delete[] buffer;
+	*maxlen = 0;
+	xEventGroupWaitBits(eventGroup, stream->EMPTY_BIT, pdTRUE, pdFALSE,
+			750 / portTICK_PERIOD_MS);
 	vEventGroupDelete(eventGroup);
 	vTaskDelete(NULL);
 }
 
 BufferStream::BufferStream(size_t buffer_size) {
 	content = new cbuf(buffer_size);
+	free = content->room();
 	eventGroup = NULL;
-	eventBits = 1;
 }
 
 BufferStream::~BufferStream() {
@@ -485,42 +494,42 @@ int BufferStream::peek() {
 }
 
 int BufferStream::read() {
-	const bool flag = eventGroup != NULL && content->room() < 1000;
+	const bool flag = eventGroup != NULL && free < 1000;
 	const int read = content->read();
-	if (flag && content->room() >= 1000) {
-		xEventGroupSetBits(eventGroup, eventBits);
+	free++;
+	if (flag && free >= 1000) {
+		xEventGroupSetBits(eventGroup, FREE_SPACE_BIT);
+		if (content->available() == 0) {
+			xEventGroupSetBits(eventGroup, EMPTY_BIT);
+			empty = true;
+		}
 	}
 	return read;
 }
 
 size_t BufferStream::readBytes(char *buffer, size_t length) {
-	const bool flag = eventGroup != NULL && content->room() < 1000;
+	const bool flag = eventGroup != NULL && free < 1000;
 	const size_t read = content->read(buffer, length);
-	if (flag && content->room() >= 1000) {
-		xEventGroupSetBits(eventGroup, eventBits);
+	free += read;
+	if (flag && free >= 1000) {
+		xEventGroupSetBits(eventGroup, FREE_SPACE_BIT);
+		if (content->available() == 0) {
+			xEventGroupSetBits(eventGroup, EMPTY_BIT);
+			empty = true;
+		}
 	}
 	return read;
 }
 
 size_t BufferStream::readBytes(uint8_t *buffer, size_t length) {
-	char *buf = new char[length];
-	length = min(readBytes(buf, length), length);
-
-	for (size_t i = 0; i < length; i++) {
-		buffer[i] = buf[i];
-	}
-	return length;
+	return readBytes((char*) buffer, length);
 }
 
 String BufferStream::readString() {
 	const size_t available = content->available();
 	char *buf = new char[available];
-	content->read(buf, available);
+	readBytes(buf, available);
 	return buf;
-}
-
-int BufferStream::availableForWrite() {
-	return content->room();
 }
 
 size_t BufferStream::write(uint8_t b) {
@@ -528,9 +537,20 @@ size_t BufferStream::write(uint8_t b) {
 }
 
 size_t BufferStream::write(const uint8_t *buffer, size_t size) {
-	if (size > content->room()) {
-		content->resizeAdd(size - content->room());
+	if (size > free) {
+		content->resizeAdd(size - free);
+		free = content->room();
 	}
 
-	return content->write((const char*) buffer, size);;
+	const bool flag = eventGroup != NULL && free >= 1000;
+	const size_t written = content->write((const char*) buffer, size);
+	free -= written;
+	if (flag && free < 1000) {
+		xEventGroupClearBits(eventGroup, FREE_SPACE_BIT);
+		if (empty) {
+			xEventGroupClearBits(eventGroup, EMPTY_BIT);
+			empty = false;
+		}
+	}
+	return written;
 }

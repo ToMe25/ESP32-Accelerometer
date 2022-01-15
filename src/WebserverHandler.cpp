@@ -21,7 +21,7 @@
 #include "WebserverHandler.h"
 #include <regex>
 
-WebserverHandler::WebserverHandler(int port, LSM9DS1Handler *handler) :
+WebserverHandler::WebserverHandler(uint16_t port, LSM9DS1Handler *handler) :
 		server(port), lsm9ds1(handler) {
 	using namespace std::placeholders;
 	// register website pages
@@ -88,7 +88,7 @@ void WebserverHandler::on_get_index(AsyncWebServerRequest *request) {
 	if (!lsm9ds1->isMeasuring() && lsm9ds1->getStoredMeasurements() == 0) {
 		request->send(200, "text/html", settings_html);
 	} else if (lsm9ds1->isMeasuring()) {
-		std::string response = std::string(recording_html);
+		std::string response(recording_html);
 		std::ostringstream converter;
 		converter << lsm9ds1->getStoredMeasurements();
 		response = std::regex_replace(response, std::regex("\\$recorded"), converter.str());
@@ -108,7 +108,7 @@ void WebserverHandler::on_get_index(AsyncWebServerRequest *request) {
 				format_time(millis() - lsm9ds1->getMeasurementStart()));
 		request->send(200, "text/html", response.c_str());
 	} else if (lsm9ds1->isCalculating()) {
-		std::string response = std::string(calculating_html);
+		std::string response(calculating_html);
 		std::ostringstream converter;
 		converter << (uint16_t) lsm9ds1->getFilesCalculated();
 		response = std::regex_replace(response, std::regex("\\$calculated"), converter.str());
@@ -123,7 +123,7 @@ void WebserverHandler::on_get_index(AsyncWebServerRequest *request) {
 				format_time(millis() - lsm9ds1->getCalculationStart()));
 		request->send(200, "text/html", response.c_str());
 	} else {
-		std::string response = std::string(results_html);
+		std::string response(results_html);
 		std::ostringstream converter;
 		converter << lsm9ds1->getStoredMeasurements();
 		response = std::regex_replace(response, std::regex("\\$measurements"), converter.str());
@@ -151,11 +151,9 @@ void WebserverHandler::on_post_index(AsyncWebServerRequest *request) {
 	on_get_index(request);
 }
 
-const char* WebserverHandler::format_time(uint64_t time_ms) {
-	char *result = new char[10] {};
-
+const std::string WebserverHandler::format_time(uint64_t time_ms) {
+	std::ostringstream result;
 	uint8_t printed = 0;
-	uint8_t length = 0;
 
 	uint8_t h = time_ms / 3600000;
 
@@ -163,8 +161,8 @@ const char* WebserverHandler::format_time(uint64_t time_ms) {
 	if (h == 0) {
 		m = time_ms / 60000 % 60;
 	} else {
-		length = sprintf(result, "%dh", h);
-		m = uint(round(time_ms / 60000.0)) % 60;
+		result << (uint16_t) h << 'h';
+		m = uint32_t(round(time_ms / 60000.0)) % 60;
 		printed++;
 	}
 
@@ -172,21 +170,30 @@ const char* WebserverHandler::format_time(uint64_t time_ms) {
 	if (m == 0) {
 		s = time_ms / 1000 % 60;
 	} else {
-		length += sprintf(result + length, printed == 1 ? " %dm" : "%dm", m);
-		s = uint(round(time_ms / 1000.0)) % 60;
+		if (printed == 1) {
+			result << ' ';
+		}
+		result << (uint16_t) m << 'm';
+		s = uint32_t(round(time_ms / 1000.0)) % 60;
 		printed++;
 	}
 
 	if (s != 0 && printed < 2) {
-		length += sprintf(result + length, printed == 1 ? " %ds" : "%ds", s);
+		if (printed == 1) {
+			result << ' ';
+		}
+		result << (uint16_t) s << 's';
 		printed++;
 	}
 
 	uint16_t ms = time_ms % 1000;
 
 	if (ms != 0 && printed < 2) {
-		sprintf(result + length, printed == 1 ? " %dms" : "%dms", ms);
+		if (printed == 1) {
+			result << ' ';
+		}
+		result << ms << "ms";
 	}
 
-	return result;
+	return result.str();
 }
