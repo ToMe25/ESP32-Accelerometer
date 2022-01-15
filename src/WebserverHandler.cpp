@@ -71,10 +71,6 @@ WebserverHandler::WebserverHandler(int port, LSM9DS1Handler *handler) :
 			bind(&LSM9DS1Handler::sendCalculationsJson, lsm9ds1, _1));
 }
 
-WebserverHandler::~WebserverHandler() {
-
-}
-
 void WebserverHandler::register_url(const uint8_t http_code, const char* url, std::function<void(AsyncWebServerRequest*)> callback) {
 	server.on(url, http_code, [this, callback](AsyncWebServerRequest *request) {
 		callback(request);

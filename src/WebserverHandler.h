@@ -37,7 +37,8 @@ extern const char calculating_js[] asm("_binary_src_html_calculating_js_start");
 class WebserverHandler {
 public:
 	WebserverHandler(int port, LSM9DS1Handler *handler);
-	virtual ~WebserverHandler();
+	virtual ~WebserverHandler() {
+	}
 
 	void begin() {
 		server.begin();
@@ -54,8 +55,8 @@ private:
 
 	LSM9DS1Handler *lsm9ds1;
 
-	void register_url(const uint8_t http_code, const char* url, std::function<void(AsyncWebServerRequest*)> callback);
-	void replace_all(std::string &str, const std::string &from, const std::string &to);
+	void register_url(const uint8_t http_code, const char *url,
+			std::function<void(AsyncWebServerRequest*)> callback);
 };
 
 #endif

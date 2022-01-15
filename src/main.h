@@ -54,6 +54,14 @@ void setup();
 void setupOTA();
 
 /**
+ * The method handling everything happening with the WiFi interfaces.
+ *
+ * @param id	The id of the WiFi event that occurred.
+ * @param infi	Information about the WiFi event to be handlerd.
+ */
+void onWiFiEvent(const WiFiEventId_t id, const WiFiEventInfo_t info);
+
+/**
  * The method doing everything that needs to be repeated for as long as the program runs.
  * Gets called repeatedly by the Arduino framework.
  */

@@ -30,28 +30,15 @@ void setup() {
 
 	WiFi.mode(WIFI_STA);
 	WiFi.disconnect(true);
+	WiFi.onEvent(onWiFiEvent);
+	WiFi.setAutoReconnect(true);
 
 	if (!WiFi.config(INADDR_NONE, GATEWAY, INADDR_NONE)) { // setting the local ip here causes setHostname to fail.
 		Serial.println("Configuring WiFi failed!");
 		return;
 	}
 
-	WiFi.setHostname(HOSTNAME);
-
 	WiFi.begin(WIFI_SSID, WIFI_PASS);
-	if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-		Serial.println("Establishing a WiFi connection failed!");
-		return;
-	}
-
-	localhost = WiFi.localIP();
-
-	if (!WiFi.enableIpV6()) {
-		Serial.print("Couldn't enable IPv6!");
-	}
-
-	Serial.print("IP Address: ");
-	Serial.println(localhost);
 
 	setupOTA();
 
@@ -105,6 +92,29 @@ void setupOTA() {
 			delay(10);
 		}
 	}, "OTA handler", 3000, NULL, 1, NULL);
+}
+
+void onWiFiEvent(const WiFiEventId_t id, const WiFiEventInfo_t info) {
+	switch (id) {
+	case SYSTEM_EVENT_STA_START:
+		WiFi.setHostname(HOSTNAME);
+		break;
+	case SYSTEM_EVENT_STA_CONNECTED:
+		if (!WiFi.enableIpV6()) {
+			Serial.print("Couldn't enable IPv6!");
+		}
+		break;
+	case SYSTEM_EVENT_GOT_IP6:
+		Serial.print("IPv6 address: ");
+		Serial.println(WiFi.localIPv6());
+		break;
+	case SYSTEM_EVENT_STA_GOT_IP:
+		Serial.print("IP address: ");
+		Serial.println(localhost = WiFi.localIP());
+		break;
+	default:
+		break;
+	}
 }
 
 void loop() {

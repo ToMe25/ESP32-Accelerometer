@@ -203,7 +203,7 @@ void LSM9DS1Handler::loop() {
 			calculating = false;
 		}
 	} else {
-		delay(1);
+		delay(20);
 	}
 }
 
@@ -376,7 +376,6 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		const std::function<char* (uint8_t, uint32_t)> content_generator,
 		const std::vector<const char*> headers, char *buffer,
 		size_t maxlen) const {
-	maxlen = min(maxlen, (size_t) 1200);
 	size_t length = 0;
 
 	if (position == 0) {
@@ -417,7 +416,6 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		const std::function<char* (uint8_t, uint32_t)> content_generator,
 		const std::vector<const char*> headers, uint8_t *buffer,
 		size_t maxlen) const {
-	maxlen = min(maxlen, (size_t) 1200);
 	char *response = new char[maxlen] { };
 
 	size_t length = generateMeasurementCsv(separator_char, position,
@@ -441,7 +439,7 @@ void LSM9DS1Handler::csvGenerator(void *parameter) {
 	const size_t content_len = param->content_len;
 	const uint8_t separator_char = param->separator_char;
 	size_t generated = 0;
-	const size_t maxlen = 10000;
+	const size_t maxlen = 3000;
 	char *buffer = new char[maxlen];
 	uint32_t position = 0;
 	while (generated < content_len) {
