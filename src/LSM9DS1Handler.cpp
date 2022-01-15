@@ -29,14 +29,6 @@ LSM9DS1Handler::LSM9DS1Handler(uint32_t max_measurements) :
 
 }
 
-void LSM9DS1Handler::setupSensor() {
-	lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
-
-	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
-
-	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
-}
-
 void LSM9DS1Handler::begin() {
 	data = (float*) ps_malloc(data_size);
 
@@ -58,6 +50,14 @@ void LSM9DS1Handler::begin() {
 #ifdef LSM9DS1_I2C
 	Wire.setClock(400000);
 #endif
+}
+
+void LSM9DS1Handler::setupSensor() {
+	lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
+
+	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
+
+	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
 }
 
 void LSM9DS1Handler::loop() {
@@ -337,14 +337,17 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		separator_char = request->arg("separator")[0];
 	}
 
-	std::shared_ptr<BufferStream> stream = std::make_shared<BufferStream>();
+	std::shared_ptr<BufferStream> stream = std::make_shared<BufferStream>(25000);
+	EventGroupHandle_t eventGroup = xEventGroupCreate();
+	stream->setEventGroup(eventGroup);
 	CsvGeneratorParameter parameter(this, stream, content_generator, headers, content_len, separator_char);
 	TaskHandle_t handle;
 	xTaskCreate(csvGenerator, "csv generator", 3000, &parameter, 1, &handle);
 
-	request->onDisconnect([handle, stream]() {
+	request->onDisconnect([handle, stream, eventGroup]() {
 		if (stream->available() > 0) {
 			vTaskDelete(handle);
+			vEventGroupDelete(eventGroup);
 		}
 	});
 	request->send(*stream, "text/csv", content_len);
@@ -435,28 +438,42 @@ void LSM9DS1Handler::csvGenerator(void *parameter) {
 	std::shared_ptr<BufferStream> stream = param->stream;
 	const std::function<char* (uint8_t, uint32_t)> content_generator =
 			param->content_generator;
+	const EventGroupHandle_t eventGroup = stream->getEventGroup();
+	const EventBits_t eventBits = stream->getEventBits();
 	const std::vector<const char*> headers = param->headers;
 	const size_t content_len = param->content_len;
 	const uint8_t separator_char = param->separator_char;
+
 	size_t generated = 0;
-	const size_t maxlen = 3000;
+	const size_t maxlen = 5000;
 	char *buffer = new char[maxlen];
 	uint32_t position = 0;
+
 	while (generated < content_len) {
 		int free = min((int) maxlen, stream->availableForWrite());
-		if (free > 1000) {
+		if (free >= 1000) {
 			free = handler->generateMeasurementCsv(separator_char, position,
 					content_generator, headers, buffer, free);
 			generated += stream->write(buffer, free);
 		} else {
-			delay(1);
+			xEventGroupWaitBits(eventGroup, eventBits, pdTRUE, pdTRUE,
+					500 / portTICK_PERIOD_MS);
 		}
 	}
+
+	delete[] buffer;
+	vEventGroupDelete(eventGroup);
 	vTaskDelete(NULL);
 }
 
 BufferStream::BufferStream(size_t buffer_size) {
 	content = new cbuf(buffer_size);
+	eventGroup = NULL;
+	eventBits = 1;
+}
+
+BufferStream::~BufferStream() {
+	delete content;
 }
 
 int BufferStream::available() {
@@ -468,16 +485,26 @@ int BufferStream::peek() {
 }
 
 int BufferStream::read() {
-	return content->read();
+	const bool flag = eventGroup != NULL && content->room() < 1000;
+	const int read = content->read();
+	if (flag && content->room() >= 1000) {
+		xEventGroupSetBits(eventGroup, eventBits);
+	}
+	return read;
 }
 
 size_t BufferStream::readBytes(char *buffer, size_t length) {
-	return content->read(buffer, length);
+	const bool flag = eventGroup != NULL && content->room() < 1000;
+	const size_t read = content->read(buffer, length);
+	if (flag && content->room() >= 1000) {
+		xEventGroupSetBits(eventGroup, eventBits);
+	}
+	return read;
 }
 
 size_t BufferStream::readBytes(uint8_t *buffer, size_t length) {
 	char *buf = new char[length];
-	length = min(content->read(buf, length), length);
+	length = min(readBytes(buf, length), length);
 
 	for (size_t i = 0; i < length; i++) {
 		buffer[i] = buf[i];
@@ -486,8 +513,9 @@ size_t BufferStream::readBytes(uint8_t *buffer, size_t length) {
 }
 
 String BufferStream::readString() {
-	char *buf = new char[content->available()];
-	content->read(buf, content->available());
+	const size_t available = content->available();
+	char *buf = new char[available];
+	content->read(buf, available);
 	return buf;
 }
 

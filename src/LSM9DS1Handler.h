@@ -48,6 +48,11 @@ public:
 	 */
 	const uint8_t MEASUREMENT_CSVS = 5;
 
+	/**
+	 * Creates a new LSM9DS1Handler for the given maximum amount of measurements.
+	 *
+	 * @param max_measurements	The max amount of measurements to be stored in this LSM9DS1Handler.
+	 */
 	LSM9DS1Handler(uint32_t max_measurements);
 	virtual ~LSM9DS1Handler() {
 	}
@@ -311,6 +316,10 @@ private:
 	static void csvGenerator(void *parameter);
 };
 
+/**
+ * A Stream implementation that writes to and reads from a cbuf.
+ * Can also optionally notify an EventGroup when more then 1000 bytes are free.
+ */
 class BufferStream : public Stream {
 public:
 	/**
@@ -319,9 +328,8 @@ public:
 	 *
 	 * @param buffer_size	The initial buffer size.
 	 */
-	BufferStream(size_t buffer_size = 20000);
-	virtual ~BufferStream() {
-	}
+	BufferStream(size_t buffer_size = 10000);
+	virtual ~BufferStream();
 
 	int available();
 	int peek();
@@ -336,8 +344,46 @@ public:
 	void flush() {
 	}
 	using Print::write;
+
+	/**
+	 * Sets the EventGroup to notify when more then 1000 bytes are free in the internal buffer.
+	 *
+	 * @param group	The EventGroup to notify.
+	 */
+	void setEventGroup(EventGroupHandle_t group) {
+		eventGroup = group;
+	}
+
+	/**
+	 * Sets the EventBits to set in the EventGroup when more then 1000 bytes are free in the internal buffer.
+	 *
+	 * @param bits	The bits to set in the EventGroup.
+	 */
+	void setEventBits(EventBits_t bits) {
+		eventBits = bits;
+	}
+
+	/**
+	 * Gets the EventGroup that gets notified when more then 1000 bytes are free in the internal buffer.
+	 *
+	 * @return	The EventGroup that gets notified.
+	 */
+	EventGroupHandle_t getEventGroup() const {
+		return eventGroup;
+	}
+
+	/**
+	 * Gets the EventBits that get set when more then 1000 bytes are free in the internal buffer.
+	 *
+	 * @return	The bits that get set in the EventGroup.
+	 */
+	EventBits_t getEventBits() const {
+		return eventBits;
+	}
 private:
 	cbuf *content;
+	EventGroupHandle_t eventGroup;
+	EventBits_t eventBits;
 };
 
 struct CsvGeneratorParameter {
