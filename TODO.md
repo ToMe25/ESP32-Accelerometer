@@ -12,3 +12,6 @@ And even if they do, there is no guarantee that these things are the next things
  * Add SD data storage(might make extra task for data storage more worth it)
  * Consider using [SparkFun LSM9DS1 IMU Library](https://github.com/sparkfun/SparkFun_LSM9DS1_Arduino_Library) for reading data from the sensor
  * Consider using [Adafruit Sensor Lab](https://github.com/adafruit/Adafruit_SensorLab) / [Adafruit Sensor Calibration](https://github.com/adafruit/Adafruit_Sensor_Calibration) for more accurate sensor readings
+ * Add html error pages for when the LSM9DS1 or the PSRAM can't be initialized
+ * Move WiFi config to SPIFFS
+ * Split measurement csv generation for length check to both CPU cores

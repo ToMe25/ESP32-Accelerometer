@@ -21,6 +21,7 @@
 #include "main.h"
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
+#include <SPIFFS.h>
 
 void setup() {
 	Serial.begin(115200);
@@ -42,14 +43,19 @@ void setup() {
 
 	setupOTA();
 
-	while (!psramInit()) {// Fails in debug mode for some reason
-		Serial.println("Failed to initialize psram!");
-		delay(1000);
-	}
-
 	server.begin();
 
 	MDNS.addService("http", "tcp", 80);
+
+	while (!SPIFFS.begin(true)) {
+		Serial.println("Failed to initialize spiffs!");
+		delay(1000);
+	}
+
+	while (!psramInit()) {
+		Serial.println("Failed to initialize psram!");
+		delay(1000);
+	}
 
 	sensorHandler.begin();
 }
@@ -58,7 +64,13 @@ void setupOTA() {
 	ArduinoOTA.setHostname(HOSTNAME);
 
 	ArduinoOTA.onStart([]() {
-		Serial.println("Start updating sketch.");
+		bool updateFS = ArduinoOTA.getCommand() == U_SPIFFS;
+		if (updateFS) {
+			SPIFFS.end();
+			Serial.println("Start updating filesystem.");
+		} else {
+			Serial.println("Start updating sketch.");
+		}
 	});
 
 	ArduinoOTA.onProgress([](uint progress, uint total) {
@@ -89,9 +101,9 @@ void setupOTA() {
 	xTaskCreate([](void *params) {
 		while (true) {
 			ArduinoOTA.handle();
-			delay(10);
+			delay(50);
 		}
-	}, "OTA handler", 3000, NULL, 1, NULL);
+	}, "OTA handler", 2500, NULL, 1, NULL);
 }
 
 void onWiFiEvent(const WiFiEventId_t id, const WiFiEventInfo_t info) {

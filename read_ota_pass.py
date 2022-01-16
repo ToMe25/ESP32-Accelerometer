@@ -1,14 +1,13 @@
 #!/usr/bin/python
 Import ("env")
 import os
-import sys
 
 def main():
     input = "otapass.txt"
 
     if not os.path.exists(input) or not os.path.isfile(input):
         print(f"Error: {input} does not exist.")
-        sys.exit(1)
+        env.Exit(1)
 
     password = ""
 

@@ -22,6 +22,7 @@
 #include "WebserverHandler.h"
 #include <sstream>
 #include <Adafruit_AHRS_Madgwick.h>
+#include <SPIFFS.h>
 
 LSM9DS1Handler::LSM9DS1Handler(uint32_t max_measurements) :
 		measurements_max(max_measurements), data_size(
@@ -169,7 +170,7 @@ void LSM9DS1Handler::loop() {
 			return;
 		}
 
-		const size_t buffer_size = 10000;
+		const size_t buffer_size = 5000;
 		char *buffer = new char[buffer_size];
 		while (pos < measurements) {
 			size += generateMeasurementCsv(separator, pos,
@@ -323,8 +324,14 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		const std::function<char* (uint8_t, uint32_t)> content_generator,
 		const std::vector<const char*> headers, const size_t content_len) const {
 	if (measurements_stored == 0 || measuring || calculating) {
-		AsyncWebServerResponse *response = request->beginResponse(503,
-				"text/html", unavailable_html);
+		if (!SPIFFS.exists("/html/unavailable.html")) {
+			request->send(400, "text/html", file_unavailable_html);
+			return;
+		}
+
+		AsyncWebServerResponse *response = request->beginResponse(SPIFFS,
+				"/html/unavailable.html", "text/html");
+		response->setCode(503);
 		if (measuring) {
 			std::ostringstream converter;
 			converter
@@ -343,16 +350,16 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		separator_char = request->arg("separator")[0];
 	}
 
-	BufferStream *stream = new BufferStream(25000);
+	BufferStream *stream = new BufferStream(20000);
 	EventGroupHandle_t eventGroup = xEventGroupCreate();
 	stream->setEventGroup(eventGroup);
-	const size_t maxlen = 5000;
+	const size_t maxlen = 1500;
 	char *buffer = new char[maxlen];
 	std::shared_ptr<CsvGeneratorParameter> parameter = std::make_shared<
 			CsvGeneratorParameter>(this, stream, maxlen, buffer,
 			content_generator, headers, content_len, separator_char);
 	TaskHandle_t handle;
-	xTaskCreate(csvGenerator, "csv generator", 3000, parameter.get(), 1, &handle);
+	xTaskCreate(csvGenerator, "csv generator", 2500, parameter.get(), 1, &handle);
 
 	request->onDisconnect([handle, parameter]() {
 		if (parameter->buffer_len > 0) {
@@ -454,10 +461,17 @@ void LSM9DS1Handler::csvGenerator(void *parameter) {
 
 	while (generated < content_len) {
 		int free = min((int) *maxlen, stream->availableForWrite());
-		if (free >= 1000) {
+		if (free >= min(*maxlen, stream->size() / 10)
+				|| free >= content_len - generated) {
 			free = handler->generateMeasurementCsv(separator_char, position,
 					content_gen, headers, buffer, free);
-			generated += stream->write(buffer, free);
+			size_t written = stream->write(buffer, free);
+			generated += written;
+
+			if (free != written) {
+				Serial.println("Somehow not all data got written to the stream!");
+			}
+			delay(1);
 		} else {
 			xEventGroupWaitBits(eventGroup, stream->FREE_SPACE_BIT, pdTRUE, pdFALSE,
 					500 / portTICK_PERIOD_MS);
@@ -477,7 +491,6 @@ void LSM9DS1Handler::csvGenerator(void *parameter) {
 
 BufferStream::BufferStream(size_t buffer_size) {
 	content = new cbuf(buffer_size);
-	free = content->room();
 	eventGroup = NULL;
 }
 
@@ -494,24 +507,15 @@ int BufferStream::peek() {
 }
 
 int BufferStream::read() {
-	const bool flag = eventGroup != NULL && free < 1000;
-	const int read = content->read();
-	free++;
-	if (flag && free >= 1000) {
-		xEventGroupSetBits(eventGroup, FREE_SPACE_BIT);
-		if (content->available() == 0) {
-			xEventGroupSetBits(eventGroup, EMPTY_BIT);
-			empty = true;
-		}
-	}
+	char read;
+	readBytes(&read, 1);
 	return read;
 }
 
 size_t BufferStream::readBytes(char *buffer, size_t length) {
-	const bool flag = eventGroup != NULL && free < 1000;
+	const bool flag = eventGroup != NULL && content->room() < content->size() / 10;
 	const size_t read = content->read(buffer, length);
-	free += read;
-	if (flag && free >= 1000) {
+	if (flag && content->room() >= content->size() / 10) {
 		xEventGroupSetBits(eventGroup, FREE_SPACE_BIT);
 		if (content->available() == 0) {
 			xEventGroupSetBits(eventGroup, EMPTY_BIT);
@@ -532,20 +536,23 @@ String BufferStream::readString() {
 	return buf;
 }
 
+int BufferStream::availableForWrite() {
+	return content->room();
+}
+
 size_t BufferStream::write(uint8_t b) {
 	return write(&b, 1);
 }
 
 size_t BufferStream::write(const uint8_t *buffer, size_t size) {
+	const size_t free = content->room();
 	if (size > free) {
 		content->resizeAdd(size - free);
-		free = content->room();
 	}
 
-	const bool flag = eventGroup != NULL && free >= 1000;
+	const bool flag = eventGroup != NULL && free >= content->size() / 10;
 	const size_t written = content->write((const char*) buffer, size);
-	free -= written;
-	if (flag && free < 1000) {
+	if (flag && content->room() < content->size() / 10) {
 		xEventGroupClearBits(eventGroup, FREE_SPACE_BIT);
 		if (empty) {
 			xEventGroupClearBits(eventGroup, EMPTY_BIT);

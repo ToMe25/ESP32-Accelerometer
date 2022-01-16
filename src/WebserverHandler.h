@@ -23,20 +23,13 @@
 
 #include "LSM9DS1Handler.h"
 #include <ESPAsyncWebServer.h>
+#include <SPIFFS.h>
 
-extern const char settings_html[] asm("_binary_src_html_settings_html_start");
-extern const char recording_html[] asm("_binary_src_html_recording_html_start");
-extern const char calculating_html[] asm("_binary_src_html_calculating_html_start");
-extern const char results_html[] asm("_binary_src_html_results_html_start");
-extern const char unavailable_html[] asm("_binary_src_html_unavailable_html_start");
-extern const char not_found_html[] asm("_binary_src_html_not_found_html_start");
-extern const char index_css[] asm("_binary_src_html_index_css_start");
-extern const char recording_js[] asm("_binary_src_html_recording_js_start");
-extern const char calculating_js[] asm("_binary_src_html_calculating_js_start");
+extern const char file_unavailable_html[] asm("_binary_src_file_unavailable_html_start");
 
 class WebserverHandler {
 public:
-	WebserverHandler(uint16_t port, LSM9DS1Handler *handler);
+	WebserverHandler(LSM9DS1Handler *handler, uint16_t port = 80, fs::FS &fs = SPIFFS);
 	virtual ~WebserverHandler() {
 	}
 
@@ -48,15 +41,42 @@ public:
 	void on_get_index(AsyncWebServerRequest *request);
 	void on_post_index(AsyncWebServerRequest *request);
 
+private:
+	LSM9DS1Handler *lsm9ds1;
+	AsyncWebServer server;
+	fs::FS &fs;
+
+	void register_url(const uint8_t http_code, const char *uri,
+			std::function<void(AsyncWebServerRequest*)> callback);
+
+	/**
+	 * Registers a request handler responding to requests on the given uri.
+	 * Responds with the SPIFFS file "/html/uri" if it exists.
+	 * Otherwise it response with file_unavailable_html.
+	 *
+	 * @param http_code		The HTTP request type to which to respond.
+	 * @param uri			The uri for which to register a request handler.
+	 * @param content_type	The content type for the response.
+	 */
+	void register_static_handler(const uint8_t http_code, const char *uri, const char *content_type);
+
+	/**
+	 * Formats the given time in milliseconds as a human readable string.
+	 * The resulting string only contains the two biggest time units which have a non zero value.
+	 *
+	 * @param time_ms	The time to print as a string in ms.
+	 * @return	The formatted string.
+	 */
 	const std::string format_time(uint64_t time_ms);
 
-private:
-	AsyncWebServer server;
-
-	LSM9DS1Handler *lsm9ds1;
-
-	void register_url(const uint8_t http_code, const char *url,
-			std::function<void(AsyncWebServerRequest*)> callback);
+	/**
+	 * Loads the content from the given file from the SPIFFS and returns a pointer to the first char of its content.
+	 * Returns NULL if the file does not exist.
+	 *
+	 * @param path	The path of the file to load.
+	 * @return	A pointer to a char array containing the content of the file.
+	 */
+	const char* load_web_page(const char *path);
 };
 
 #endif

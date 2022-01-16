@@ -10,3 +10,6 @@
 wifissid.txt
 wifipass.txt
 otapass.txt
+
+# Others
+spiffs-timesum.txt

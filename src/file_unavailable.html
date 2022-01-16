@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>ESP initialization error!</title>
+<style>
+body {
+	background-color: #acbec6;
+	text-align: center;
+}
+
+.main {
+	border: 4px solid #8c8c8c;
+	border-radius: 10px;
+	background-color: #ededed;
+	padding: 30px;
+	display: inline-block;
+	margin: 5% 0;
+	font-size: 2em;
+}
+
+h1 {
+	font-size: 2.2em;
+	margin-left: 0.2em;
+	margin-right: 0.2em;
+}
+</style>
+</head>
+<body>
+	<div class="main">
+		<h1>The requested file couldn't be loaded from the SPIFFS!</h1>
+		The requested file doesn't exist on the SPIFFS(Serial Peripheral Interface Flash File System).<br />
+		This either means the SPIFFS partition couldn't be loaded, or the file is missing.<br />
+		Try running "<code>pio run -t uploadfs -e esp32dev</code>" to flash the files to the ESP32 over USB<br />
+		Or "<code>pio run -t uploadfs -e esp32dev_ota</code>" to upload the files over WiFi.
+	</div>
+</body>
+</html>

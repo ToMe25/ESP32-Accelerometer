@@ -335,6 +335,15 @@ public:
 	BufferStream(size_t buffer_size = 10000);
 	virtual ~BufferStream();
 
+	/**
+	 * Gets the size of the internal buffer.
+	 *
+	 * @return	The size of the internal buffer.
+	 */
+	size_t size() {
+		return content->size();
+	}
+
 	int available();
 	int peek();
 	int read();
@@ -342,14 +351,13 @@ public:
 	size_t readBytes(uint8_t *buffer, size_t length);
 	String readString();
 
-	int availableForWrite() {
-		return free;
-	}
+	int availableForWrite();
 	size_t write(uint8_t b);
 	size_t write(const uint8_t *buffer, size_t size);
+	using Print::write;
+
 	void flush() {
 	}
-	using Print::write;
 
 	/**
 	 * Sets the EventGroup to notify when something happens.
@@ -364,7 +372,7 @@ public:
 
 	/**
 	 * Gets the EventGroup to notify when something happens.
-	 * There is one notification for when 1000 or more bytes are free in the internal buffer.
+	 * There is one notification for when a tenth or more of internal buffer is free.
 	 * And another one for when the stream is empty.
 	 *
 	 * @return	The EventGroup that gets notified.
@@ -374,7 +382,7 @@ public:
 	}
 
 	/**
-	 * The bit that is set in the EventGroup when 1000 bytes or more are free in the internal buffer.
+	 * The bit that is set in the EventGroup when a tenth of the internal buffer or more is free.
 	 */
 	const EventBits_t FREE_SPACE_BIT = 1;
 
@@ -384,7 +392,6 @@ public:
 	const EventBits_t EMPTY_BIT = 1 << 1;
 private:
 	cbuf *content;
-	size_t free;
 	EventGroupHandle_t eventGroup;
 	bool empty = false;
 };

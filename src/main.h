@@ -40,7 +40,7 @@ static LSM9DS1Handler sensorHandler(MAX_MEASUREMENTS);
 
 static const uint PORT = 80;
 
-static WebserverHandler server(PORT, &sensorHandler);
+static WebserverHandler server(&sensorHandler, PORT);
 
 /**
  * The first method called when the ESP starts.
