@@ -242,9 +242,22 @@ private:
 	size_t gyro_csv_size = 0;
 	size_t mag_csv_size = 0;
 
-	std::function<char* (uint8_t, uint32_t)> getAllGenerator() const;
-	std::function<char* (uint8_t, uint32_t)> getLinearAccelerationGenerator() const;
-	std::function<char* (uint8_t, uint32_t)> getDataContentGenerator(
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> getAllGenerator() const;
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> getLinearAccelerationGenerator() const;
+
+	/**
+	 * Returns a function that writes a line of a measurement csv from the recording measurements in the data array.
+	 *
+	 * The returned function gets a char pointer to write to,
+	 * the character to separate values with,
+	 * and the number of measurements that were already written.
+	 * It returns the number of characters that were written.
+	 *
+	 * @param index		The number of values in the data array before the ones that should be written to the csv.
+	 * @param channels	The number of values per measurement that should be written to the csv.
+	 * @return	The function actually generating the output.
+	 */
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> getDataContentGenerator(
 			const uint8_t index, uint8_t channels = 3) const;
 
 	/**
@@ -272,7 +285,7 @@ private:
 	 * @param content_len		The total size of the measurements csv in bytes.
 	 */
 	void sendMeasurementsCsv(AsyncWebServerRequest *request,
-			const std::function<char* (uint8_t, uint32_t)> content_generator,
+			const std::function<size_t(char*, const uint8_t, const uint32_t)> content_generator,
 			const std::vector<const char*> headers,
 			const size_t content_len) const;
 
@@ -290,7 +303,7 @@ private:
 	 */
 	size_t generateMeasurementCsv(const uint8_t separator_char,
 			uint32_t &position,
-			const std::function<char* (uint8_t, uint32_t)> content_generator,
+			const std::function<size_t(char*, const uint8_t, const uint32_t)> content_generator,
 			const std::vector<const char*> headers, char *buffer,
 			size_t maxlen) const;
 
@@ -308,9 +321,12 @@ private:
 	 */
 	size_t generateMeasurementCsv(const uint8_t separator_char,
 			uint32_t &position,
-			const std::function<char* (uint8_t, uint32_t)> content_generator,
+			const std::function<size_t(char*, const uint8_t, const uint32_t)> content_generator,
 			const std::vector<const char*> headers, uint8_t *buffer,
-			size_t maxlen) const;
+			size_t maxlen) const {
+		return generateMeasurementCsv(separator_char, position,
+				content_generator, headers, (char*) buffer, maxlen);
+	}
 
 	/**
 	 * The function running in a new task generating the measurement csv to send to a client.
@@ -399,7 +415,7 @@ private:
 struct CsvGeneratorParameter {
 	CsvGeneratorParameter(const LSM9DS1Handler *handler, BufferStream *stream,
 			size_t buffer_len, char *buffer,
-			const std::function<char* (uint8_t, uint32_t)> content_gen,
+			const std::function<size_t(char*, const uint8_t, const uint32_t)> content_gen,
 			const std::vector<const char*> headers, const size_t content_len,
 			const uint8_t separator_char) :
 			handler(handler), stream(stream), buffer_len(buffer_len), buffer(
@@ -416,7 +432,7 @@ struct CsvGeneratorParameter {
 	BufferStream *stream;
 	size_t buffer_len;
 	char *buffer;
-	const std::function<char* (uint8_t, uint32_t)> content_gen;
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> content_gen;
 	const std::vector<const char*> headers;
 	const size_t content_len;
 	const uint8_t separator_char;

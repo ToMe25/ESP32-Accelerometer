@@ -123,7 +123,7 @@ void LSM9DS1Handler::loop() {
 		const uint8_t separator = ',';
 		uint32_t pos = 0;
 		size_t size = 0;
-		std::function<char* (uint8_t, uint32_t)> content_generator;
+		std::function<size_t(char*, const uint8_t, const uint32_t)> content_generator;
 		std::vector<const char*> headers;
 
 		switch(calculated) {
@@ -227,41 +227,30 @@ void LSM9DS1Handler::measure(uint32_t measurements, uint16_t freq) {
 	xEventGroupSetBits(eventGroup, MEASURE_START_BIT);
 }
 
-std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getAllGenerator() const {
-	const std::function<char* (uint8_t, uint32_t)> accel_gen =
+const std::function<size_t(char*, const uint8_t, const uint32_t)> LSM9DS1Handler::getAllGenerator() const {
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> accel_gen =
 			getDataContentGenerator(1);
-	const std::function<char* (uint8_t, uint32_t)> linear_accel_gen =
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> linear_accel_gen =
 			getLinearAccelerationGenerator();
-	const std::function<char* (uint8_t, uint32_t)> gyromag_gen =
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> gyromag_gen =
 			getDataContentGenerator(4, 6);
-	return [this, accel_gen, linear_accel_gen, gyromag_gen](
-			uint8_t separator_char, uint32_t position) {
-		char *content = new char[156] { 0 };
-		char *buffer = accel_gen(separator_char, position);
-		strcpy(content, buffer);
-		delete[] buffer;
+	return [this, accel_gen, linear_accel_gen, gyromag_gen](char *buffer,
+			const uint8_t separator_char, const uint32_t position) -> size_t {
+		size_t length = accel_gen(buffer, separator_char, position);
+		length += linear_accel_gen(buffer + length, separator_char, position);
+		length += gyromag_gen(buffer + length, separator_char, position);
 
-		buffer = linear_accel_gen(separator_char, position);
-		strcat(content, buffer);
-		delete[] buffer;
-
-		buffer = gyromag_gen(separator_char, position);
-		strcat(content, buffer);
-		delete[] buffer;
-
-		return content;
+		return length;
 	};
 }
 
-std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getLinearAccelerationGenerator() const {
+const std::function<size_t(char*, const uint8_t, const uint32_t)> LSM9DS1Handler::getLinearAccelerationGenerator() const {
 	std::shared_ptr<Adafruit_Madgwick> filter = std::make_shared<
 			Adafruit_Madgwick>();
 	// Tell the filter a lower sample rate to reduce smoothing.
 	filter->begin(round(1000000.0 / measuring_time) / 20);
 
-	return [this, filter](uint8_t separator_char, uint32_t position) mutable {
-		char *line = new char[39] { };
-
+	return [this, filter](char *buffer, const uint8_t separator_char, const uint32_t position) -> size_t {
 		const float ax = data[position * VALUES_PER_MEASUREMENT + 1]
 				/ SENSORS_GRAVITY_EARTH;
 		const float ay = data[position * VALUES_PER_MEASUREMENT + 2]
@@ -294,35 +283,32 @@ std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getLinearAccelerationGe
 		const float linY = ay - gravY;
 		const float linZ = az - gravZ;
 
-		sprintf(line, "%c%f%c%f%c%f", separator_char,
+		return sprintf(buffer, "%c%f%c%f%c%f", separator_char,
 				linX * SENSORS_GRAVITY_EARTH, separator_char,
 				linY * SENSORS_GRAVITY_EARTH, separator_char,
 				linZ * SENSORS_GRAVITY_EARTH);
-
-		return line;
 	};
 }
 
-std::function<char* (uint8_t, uint32_t)> LSM9DS1Handler::getDataContentGenerator(
+const std::function<size_t(char*, const uint8_t, const uint32_t)> LSM9DS1Handler::getDataContentGenerator(
 		const uint8_t index, uint8_t channels) const {
 	channels = min(VALUES_PER_MEASUREMENT, channels);
 
-	return [this, index, channels](uint8_t separator_char, uint32_t position) {
-		char *line = new char[channels * 13] { };
-
-		uint16_t length = 0;
+	return [this, index, channels](char *buffer, const uint8_t separator_char, const uint32_t position) -> size_t {
+		size_t length = 0;
 		for (uint8_t i = 0; i < channels; i++) {
-			length += sprintf(line + length, "%c%f", separator_char,
+			length += sprintf(buffer + length, "%c%f", separator_char,
 					data[position * VALUES_PER_MEASUREMENT + index + i]);
 		}
 
-		return line;
+		return length;
 	};
 }
 
 void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
-		const std::function<char* (uint8_t, uint32_t)> content_generator,
-		const std::vector<const char*> headers, const size_t content_len) const {
+		const std::function<size_t(char*, const uint8_t, const uint32_t)> content_generator,
+		const std::vector<const char*> headers,
+		const size_t content_len) const {
 	if (measurements_stored == 0 || measuring || calculating) {
 		if (!SPIFFS.exists("/html/unavailable.html")) {
 			request->send(400, "text/html", file_unavailable_html);
@@ -353,7 +339,7 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 	BufferStream *stream = new BufferStream(20000);
 	EventGroupHandle_t eventGroup = xEventGroupCreate();
 	stream->setEventGroup(eventGroup);
-	const size_t maxlen = 1500;
+	const size_t maxlen = 2000;
 	char *buffer = new char[maxlen];
 	std::shared_ptr<CsvGeneratorParameter> parameter = std::make_shared<
 			CsvGeneratorParameter>(this, stream, maxlen, buffer,
@@ -396,7 +382,7 @@ void LSM9DS1Handler::sendCalculationsJson(
 
 size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		uint32_t &position,
-		const std::function<char* (uint8_t, uint32_t)> content_generator,
+		const std::function<size_t(char*, const uint8_t, const uint32_t)> content_generator,
 		const std::vector<const char*> headers, char *buffer,
 		size_t maxlen) const {
 	size_t length = 0;
@@ -419,28 +405,16 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 	}
 
 	while (length < maxlen - 13 * (headers.size() + 1) && position < measurements_stored) {
-		char *content = content_generator(separator_char, position);
-
 		length += sprintf(buffer + length, "%d",
 				(uint32_t) data[position * VALUES_PER_MEASUREMENT]);
-		strcpy(buffer + length, content);
-		length += strlen(content);
+
+		length += content_generator(buffer + length, separator_char, position);
 		buffer[length++] = '\n';
 
-		delete[] content;
 		position++;
 	}
 
 	return min(length, maxlen);
-}
-
-size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
-		uint32_t &position,
-		const std::function<char* (uint8_t, uint32_t)> content_generator,
-		const std::vector<const char*> headers, uint8_t *buffer,
-		size_t maxlen) const {
-	return generateMeasurementCsv(separator_char, position,
-			content_generator, headers, (char*) buffer, maxlen);
 }
 
 void LSM9DS1Handler::csvGenerator(void *parameter) {
@@ -449,7 +423,7 @@ void LSM9DS1Handler::csvGenerator(void *parameter) {
 	BufferStream *stream = param->stream;
 	size_t *maxlen = &param->buffer_len;
 	char *buffer = param->buffer;
-	const std::function<char* (uint8_t, uint32_t)> content_gen =
+	const std::function<size_t(char*, const uint8_t, const uint32_t)> content_gen =
 			param->content_gen;
 	const EventGroupHandle_t eventGroup = stream->getEventGroup();
 	const std::vector<const char*> headers = param->headers;
