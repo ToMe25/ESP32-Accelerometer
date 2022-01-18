@@ -25,8 +25,6 @@
 #include <WebserverHandler.h>
 #include <LSM9DS1Handler.h>
 
-extern const char WIFI_SSID[] asm("_binary_wifissid_txt_start");
-extern const char WIFI_PASS[] asm("_binary_wifipass_txt_start");
 extern const char OTA_PASS[] asm("_binary_otapass_txt_start");
 
 static IPAddress localhost;
@@ -52,6 +50,11 @@ void setup();
  * Initializes everything required for ArduinoOTA.
  */
 void setupOTA();
+
+/**
+ * Try to connect to the WiFi set in the SPIFFS file.
+ */
+void tryConnect();
 
 /**
  * The method handling everything happening with the WiFi interfaces.

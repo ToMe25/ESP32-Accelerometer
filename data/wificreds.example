@@ -1,0 +1,10 @@
+# This file contains the WiFi credentials for this program.
+# Lines starting with a hashtag in this file are ignored.
+# Empty lines are also ignored.
+# As are lines without a hashtag after the second one.
+# The first line not starting with a hashtag is interpreted to be WiFi SSID.
+# This line can start or end with spaces, they will be automatically removed.
+My SSID
+# The second line not starting with a hashtag is used as the WiFi Passphrase.
+# This line cannot start or end with spaces, since they can't be removed as they could be part of the Passphrase.
+My WPA Passphrase

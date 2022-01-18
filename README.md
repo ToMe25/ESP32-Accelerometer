@@ -12,10 +12,11 @@ Using I2C this program can reach a sample rate of ~230hz, using SPI it can reach
 # Setup
  1. Install [PlatformIO](https://docs.platformio.org/en/latest/core/installation.html)
  2. Clone this git repository, for example using `git clone https://www.github.com/ToMe25/ESP32-Accelerometer.git/`
- 3. Connect the LSM9DS1 and the ESP32 according to the table for your preferred protocol below this list.
+ 3. Connect the LSM9DS1 and the ESP32 according to the table for your preferred protocol below this list.  
     If you want to use I2C you also need to uncomment `#define LSM9DS1_I2C` in `src/LSM9DS1Handler.h` line 30.
  4. Attach the ESP32 to your PC
- 5. Add a `wifissid.txt` and `wifipass.txt` file containing your wifi ssid and passphrase. Make sure they do not end with an empty line!
+ 5. Create a file called `wificreds.txt` in the data folder containing your WiFi credentials.  
+    Look at wificreds.example for info on how to structure the file.
  6. Create a `otapass.txt` file containing the password to be used to update the firmware over WiFi. Make sure this file does not end with an empty line!
  7. Build and Upload using your IDE or by running `pio run -t upload -e esp32dev` to flash over USB or `pio run -t upload -e esp32dev_ota` to update the program over WiFi.
 

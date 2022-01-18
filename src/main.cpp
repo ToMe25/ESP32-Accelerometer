@@ -39,18 +39,18 @@ void setup() {
 		return;
 	}
 
-	WiFi.begin(WIFI_SSID, WIFI_PASS);
+	while (!SPIFFS.begin(true)) {
+		Serial.println("Failed to initialize spiffs!");
+		delay(1000);
+	}
+
+	tryConnect();
 
 	setupOTA();
 
 	server.begin();
 
 	MDNS.addService("http", "tcp", 80);
-
-	while (!SPIFFS.begin(true)) {
-		Serial.println("Failed to initialize spiffs!");
-		delay(1000);
-	}
 
 	while (!psramInit()) {
 		Serial.println("Failed to initialize psram!");
@@ -106,6 +106,38 @@ void setupOTA() {
 	}, "OTA handler", 2500, NULL, 1, NULL);
 }
 
+void tryConnect() {
+	if (!SPIFFS.exists("/wificreds.txt")) {
+		Serial.println("Can't read WiFi credentials because /wificreds.txt doesn't exist.");
+		Serial.println("Please create a file called wificreds.txt in the data directory of this project");
+		Serial.println("And re-upload the SPIFFS image.");
+		return;
+	}
+
+	File wificreds = SPIFFS.open("/wificreds.txt");
+	String ssid = "";
+	String psk = "";
+	while (wificreds.available() > 0) {
+		String line = wificreds.readStringUntil('\n');
+		if (line[line.length() - 1] == '\r') {
+			line.remove(line.length() - 1);
+		}
+
+		String trimmed = line;
+		trimmed.trim();
+		if (trimmed[0] == '#' || trimmed.length() == 0) {
+			continue;
+		} else if (ssid == "") {
+			ssid = trimmed;
+		} else if (psk == "") {
+			psk = line;
+			break;
+		}
+	}
+
+	WiFi.begin(ssid.c_str(), psk.c_str());
+}
+
 void onWiFiEvent(const WiFiEventId_t id, const WiFiEventInfo_t info) {
 	switch (id) {
 	case SYSTEM_EVENT_STA_START:
@@ -115,6 +147,10 @@ void onWiFiEvent(const WiFiEventId_t id, const WiFiEventInfo_t info) {
 		if (!WiFi.enableIpV6()) {
 			Serial.print("Couldn't enable IPv6!");
 		}
+
+		Serial.print("Connected to WiFi \"");
+		Serial.print(std::string((char*) info.connected.ssid, info.connected.ssid_len).c_str());
+		Serial.println('"');
 		break;
 	case SYSTEM_EVENT_GOT_IP6:
 		Serial.print("IPv6 address: ");
