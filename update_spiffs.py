@@ -16,7 +16,7 @@ def update_spiffs(source, target, env):
     oldTime = float(timeFile.read())
     timeFile.close()
 
-    newTime = float((sum(os.path.getmtime(os.path.join(dataDirPath, file_name)) for file_name in os.listdir(dataDirPath))))
+    newTime = float(sum(sum(os.path.getmtime(os.path.join(root, file)) for file in files) for root, _, files in os.walk(dataDirPath)))
 
     if newTime != oldTime:
         print("\nfile updated in data directory -- building/uploading spiffs image\n")

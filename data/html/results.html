@@ -9,8 +9,8 @@
 	<form method="post" action="index.html" class="main">
 		<h1>Recording finished!</h1>
 		<p>Warning: more then 3 downloads running at the same time will crash the ESP.</p>
-		Measurements: $measurements<br />
-		Recording Time: $time<br />
+		<p>Measurements: <span>$measurements</span></p>
+		<p>Recording Time: <span>$time</span></p>
 		<label for="separator">The separator char for the csvs: </label>
 		<input type="text" name="separator" id="seperator" maxlength="1" value=","> <br />
 		<button class="redbtn smallbtn" name="back" value="back">Back</button>
