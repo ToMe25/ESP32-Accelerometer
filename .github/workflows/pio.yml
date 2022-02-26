@@ -1,0 +1,46 @@
+# This workflow builds all platformio build targets to test whether any of them were broken by a commit.
+
+name: Platform IO build
+
+on: 
+  push:
+    paths:
+      - src/**
+      - lib/**
+      - test/**
+      - include/**
+      - platformio.ini
+      - .github/workflows/pio.yml
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Cache pip packages and Platform IO build cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio
+            .pio
+          key: platformio-${{ hashFiles('platformio.ini') }}
+
+      - name: Install Platform IO
+        run: pip install -U platformio
+
+      - name: Create crdential files
+        run: |
+          echo "OTA Password" > otapass.txt
+
+      - name: Run Platform IO builds
+        run: pio run
