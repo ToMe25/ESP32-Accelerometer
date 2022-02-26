@@ -1,6 +1,7 @@
 # eclipse
 .cproject
 .project
+.pydevproject
 .settings
 
 # platform io
@@ -8,7 +9,7 @@
 
 # Credentials
 data/wificreds.txt
-otapass.txt
+data/otapass.txt
 
 # Others
 spiffs-timesum.txt

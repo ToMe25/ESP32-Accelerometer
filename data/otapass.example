@@ -1,0 +1,7 @@
+# This file contains the password to be used for ArduinoOTA.
+# Lines starting with a hashtag in this file are ignored.
+# Empty lines are also ignored.
+# As are all lines after the first one not starting with a hashtag.
+# The first line not starting with a hashtag is used as the OTA password.
+# This line cannot start or end with spaces, since they can't be removed as they could be part of the Passphrase.
+Arduino OTA Password

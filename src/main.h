@@ -25,8 +25,6 @@
 #include <WebserverHandler.h>
 #include <LSM9DS1Handler.h>
 
-extern const char OTA_PASS[] asm("_binary_otapass_txt_start");
-
 static IPAddress localhost;
 static const IPAddress GATEWAY(192, 168, 2, 1);
 

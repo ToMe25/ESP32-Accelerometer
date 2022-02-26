@@ -61,7 +61,34 @@ void setup() {
 }
 
 void setupOTA() {
+	if (!SPIFFS.exists("/otapass.txt")) {
+		Serial.println("Can't read ArduinoOTA password because /otapass.txt doesn't exist.");
+		Serial.println("Please create a file called otapass.txt in the data directory of this project");
+		Serial.println("And re-upload the SPIFFS image.");
+		return;
+	}
+
+	File otapass = SPIFFS.open("/otapass.txt");
+	String pass = "";
+	while (otapass.available() > 0) {
+		String line = otapass.readStringUntil('\n');
+		if (line[line.length() - 1] == '\r') {
+			line.remove(line.length() - 1);
+		}
+
+		String trimmed = line;
+		trimmed.trim();
+		if (trimmed[0] == '#' || trimmed.length() == 0) {
+			continue;
+		} else if (pass == "") {
+			pass = line;
+			break;
+		}
+	}
+
 	ArduinoOTA.setHostname(HOSTNAME);
+
+	ArduinoOTA.setPassword(pass.c_str());
 
 	ArduinoOTA.onStart([]() {
 		bool updateFS = ArduinoOTA.getCommand() == U_SPIFFS;

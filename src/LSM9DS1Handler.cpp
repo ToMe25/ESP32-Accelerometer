@@ -394,7 +394,7 @@ size_t LSM9DS1Handler::generateMeasurementCsv(const uint8_t separator_char,
 		strcpy(buffer, "Time(ms)");
 		length = 8;
 
-		for (uint8_t i = 0; i < headers.size(); i++) {
+		for (size_t i = 0; i < headers.size(); i++) {
 			buffer[length++] = separator_char;
 			strcpy(buffer + length, headers[i]);
 			length += strlen(headers[i]);
