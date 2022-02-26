@@ -365,7 +365,9 @@ void LSM9DS1Handler::sendMeasurementsJson(
 	}
 	sprintf(measurements, "{\"measurements\": %u, \"time\": %u}",
 			measurements_stored, measuring_time);
-	request->send(200, "application/json", measurements);
+	AsyncWebServerResponse *response = request->beginResponse(200, "application/json", measurements);
+	response->addHeader("Cache-Control", "no-cache");
+	request->send(response);
 	delete[] measurements;
 }
 
@@ -375,7 +377,9 @@ void LSM9DS1Handler::sendCalculationsJson(
 	const uint32_t calculating_time = millis() - calculation_start;
 	sprintf(calculations, "{\"calculated\": %u, \"file\": \"%s\", \"time\": %u}",
 			calculated, file_calculating.c_str(), calculating_time);
-	request->send(200, "application/json", calculations);
+	AsyncWebServerResponse *response = request->beginResponse(200, "application/json", calculations);
+	response->addHeader("Cache-Control", "no-cache");
+	request->send(response);
 	delete[] calculations;
 }
 

@@ -33,7 +33,7 @@ WebserverHandler::WebserverHandler(LSM9DS1Handler *handler, uint16_t port) :
 	register_url(HTTP_POST, "/index.html",
 			bind(&WebserverHandler::on_post_index, this, _1));
 
-	register_static_handler(HTTP_GET, "/index.css", "text/css", index_css);
+	register_static_handler(HTTP_GET, "/main.css", "text/css", main_css);
 
 	register_static_handler(HTTP_GET, "/recording.js", "text/javascript", recording_js);
 
