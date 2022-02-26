@@ -22,7 +22,6 @@
 #include "WebserverHandler.h"
 #include <sstream>
 #include <Adafruit_AHRS_Madgwick.h>
-#include <SPIFFS.h>
 
 LSM9DS1Handler::LSM9DS1Handler(uint32_t max_measurements) :
 		measurements_max(max_measurements), data_size(
@@ -74,7 +73,7 @@ void LSM9DS1Handler::loop() {
 			return;
 		}
 
-		uint64_t start_us = micros();
+		const uint64_t start_us = micros();
 
 		sensors_event_t a, m, g, t;
 		lsm.getEvent(&a, &m, &g, &t);
@@ -106,18 +105,24 @@ void LSM9DS1Handler::loop() {
 		measurements_stored++;
 
 		if (measurements_stored > 1) {
+			const uint32_t measurements_avg_count = min(measurements_stored,
+					(uint32_t) 10);
+
+			const float last_measurements_time_ms = data[(measurements_stored - 1)
+					* VALUES_PER_MEASUREMENT]
+					- data[(measurements_stored - measurements_avg_count)
+							* VALUES_PER_MEASUREMENT];
+
 			measuring_time = round(
-					(data[(measurements_stored - 1) * VALUES_PER_MEASUREMENT]
-							- data[(measurements_stored
-									- min(measurements_stored, (uint32_t) 10))
-									* VALUES_PER_MEASUREMENT]) * 1000
-							/ (min(measurements_stored, (uint32_t) 10) - 1));
+					last_measurements_time_ms * 1000
+							/ (measurements_avg_count - 1));
 		}
 
+		const uint64_t end_us = micros();
 		delayMicroseconds(
 				measuring_time_target
 						- min(measuring_time_target,
-								(uint32_t) (micros() - start_us)));
+								(uint32_t) (end_us - start_us)));
 	} else if (calculating) {
 		const uint64_t start = millis();
 		const uint8_t separator = ',';
@@ -310,19 +315,13 @@ void LSM9DS1Handler::sendMeasurementsCsv(AsyncWebServerRequest *request,
 		const std::vector<const char*> headers,
 		const size_t content_len) const {
 	if (measurements_stored == 0 || measuring || calculating) {
-		if (!SPIFFS.exists("/html/unavailable.html")) {
-			request->send(400, "text/html", file_unavailable_html);
-			return;
-		}
-
-		AsyncWebServerResponse *response = request->beginResponse(SPIFFS,
-				"/html/unavailable.html", "text/html");
-		response->setCode(503);
+		AsyncWebServerResponse *response = request->beginResponse_P(503,
+				"text/html", unavailable_html);
 		if (measuring) {
 			std::ostringstream converter;
-			converter
-					<< ((measurements - measurements_stored) * measuring_time
-							/ 1000000);
+			const uint32_t remaining_measuring_time = (measurements
+					- measurements_stored) * measuring_time / 1000000;
+			converter << remaining_measuring_time;
 			response->addHeader("Retry-After", converter.str().c_str());
 		} else {
 			response->addHeader("Retry-After", "5");
@@ -373,7 +372,7 @@ void LSM9DS1Handler::sendMeasurementsJson(
 void LSM9DS1Handler::sendCalculationsJson(
 		AsyncWebServerRequest *request) const {
 	char *calculations = new char[70];
-	uint32_t calculating_time = millis() - calculation_start;
+	const uint32_t calculating_time = millis() - calculation_start;
 	sprintf(calculations, "{\"calculated\": %u, \"file\": \"%s\", \"time\": %u}",
 			calculated, file_calculating.c_str(), calculating_time);
 	request->send(200, "application/json", calculations);

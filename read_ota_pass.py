@@ -14,6 +14,7 @@ def main():
     with open(input) as f:
         password = f.readline()
 
+    password = password.strip('\00')
     env.Append(UPLOADERFLAGS=["-a", password])
 
 main()
