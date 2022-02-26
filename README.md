@@ -17,7 +17,8 @@ Using I2C this program can reach a sample rate of ~230hz, using SPI it can reach
  4. Attach the ESP32 to your PC
  5. Create a file called `wificreds.txt` in the data folder containing your WiFi credentials.  
     Look at wificreds.example for info on how to structure the file.
- 6. Create a `otapass.txt` file containing the password to be used to update the firmware over WiFi. Make sure this file does not end with an empty line!
+ 6. Create a `otapass.txt` file in the data directory containing the password to be used to update the firmware over WiFi.  
+    Look at otapass.example for info.
  7. Build and Upload using your IDE or by running `pio run -t upload -e esp32dev` to flash over USB or `pio run -t upload -e esp32dev_ota` to update the program over WiFi.
 
 Connections for I2C:  
