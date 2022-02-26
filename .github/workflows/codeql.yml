@@ -58,7 +58,6 @@ jobs:
       if: ${{ matrix.language == 'cpp' }}
       run: |
         pip install -U platformio
-        echo "OTA Password" > otapass.txt
         pio run -e esp32dev
 
     # ℹ️ Command-line programs to run using the OS shell.

@@ -38,9 +38,8 @@ jobs:
       - name: Install Platform IO
         run: pip install -U platformio
 
-      - name: Create crdential files
-        run: |
-          echo "OTA Password" > otapass.txt
+      - name: Copy example OTA password file
+        run: cp data/otapass.example data/otapass.txt
 
       - name: Run Platform IO builds
         run: pio run
