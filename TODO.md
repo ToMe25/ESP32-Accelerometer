@@ -16,3 +16,4 @@ And even if they do, there is no guarantee that these things are the next things
  * Split measurement csv generation for length check to both CPU cores
  * Add some AP website WiFi Sta config like [this](https://www.esp8266.com/viewtopic.php?p=91605#p91605)
  * Allow index.css, recording.js, and calculating.js caching using their hash as an ETag
+ * Return a Error 503 page when trying to download a generated csv while the ESP32 is already handling as many downloads of them as it can without crashing
